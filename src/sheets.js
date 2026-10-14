@@ -42,7 +42,7 @@ function studentSheet(id,preset={}){
 
 function lessonSheet(id,preset={}){
   const st=SET();
-  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'一對一私人課',location:st.defaultLocation||''};
+  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'',location:st.defaultLocation||''};
   const att=l.attendance||{};
   const locs=[...new Set([st.defaultLocation,...all('lessons').map(x=>x.location)].filter(Boolean))];
   const studs=all('students').filter(s=>(s.status||'active')==='active'||(l.studentIds||[]).includes(s.id)).sort(byName);
@@ -50,7 +50,7 @@ function lessonSheet(id,preset={}){
   <div class="grid3"><div class="f"><label for="l_date">日期</label><input id="l_date" type="date" name="date" required value="${esc(l.date)}"></div>
   <div class="f"><label for="l_time">開始</label><input id="l_time" type="time" name="time" required value="${esc(l.time)}"></div>
   <div class="f"><label for="l_dur">時長</label><select id="l_dur" name="duration">${[30,45,60,90,120,150,180].map(m=>`<option value="${m}" ${Number(l.duration)===m?'selected':''}>${m} 分</option>`).join('')}</select></div></div>
-  <div class="f"><label for="l_title">課程名稱</label><input id="l_title" name="title" list="titles" value="${esc(l.title)}"><datalist id="titles">${[...new Set(['一對一私人課','雙人課','初學團體班','進階團體班','對打實戰課',...all('lessons').map(x=>x.title)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
+  <div class="f"><label for="l_title">課程名稱（選填）</label><input id="l_title" name="title" list="titles" value="${esc(l.title)}" placeholder="留空就顯示「匹克球課」"><datalist id="titles">${[...new Set(['一對一私人課','雙人課','初學團體班','進階團體班','對打實戰課',...all('lessons').map(x=>x.title)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
   <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
   <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}</div>
   <div class="grid3"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
@@ -68,7 +68,7 @@ function lessonSheet(id,preset={}){
   ${id?`<div class="actions" style="margin-top:8px"><button type="button" class="btn line" data-act="remind-lesson" data-id="${id}">傳上課提醒</button><button type="button" class="btn" data-act="ics" data-id="${id}">加入手機行事曆</button><button type="button" class="btn" data-act="dup-lesson" data-id="${id}">複製到下週</button></div>`:''}`,
   fd=>{
     const sids=fd.getAll('sids').map(String);
-    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title')||'匹克球課',location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),feeTotal:Math.max(0,Math.round(Number(fv(fd,'feeTotal')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
+    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title'),location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),feeTotal:Math.max(0,Math.round(Number(fv(fd,'feeTotal')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
     if(!o.date||!o.time)return toast('請填寫日期和時間');
     const clash=all('lessons').find(x=>x.id!==id&&x.date===o.date&&x.status!=='cancelled'&&toMin(x.time)<toMin(o.time)+o.duration&&toMin(o.time)<toMin(x.time)+Number(x.duration||60));
     if(id){const a={};sids.forEach(s=>{const v=fv(fd,'att_'+s);if(v)a[s]=v});o.attendance=a;o.status=fv(fd,'status')||'scheduled';
@@ -99,7 +99,8 @@ function logSheet(id,preset={}){
   const g=id?byId('logs',id):null;
   const sid=g?.studentId||preset.sid||activeStudents().sort(byName)[0]?.id||all('students')[0].id;
   const prev=g?null:logsOf(sid)[0];
-  const sk=g?.skills||prev?.skills||Object.fromEntries(SKILLS.map(([k])=>[k,2]));
+  const SK=skillList();
+  const sk=g?.skills||prev?.skills||Object.fromEntries(SK.map(([k])=>[k,2]));
   const lid=g?.lessonId||preset.lid||'';
   const date=g?.date||(lid&&byId('lessons',lid)?.date)||today();
   openSheet(id?'編輯上課筆記':'寫上課筆記',`
@@ -109,10 +110,10 @@ function logSheet(id,preset={}){
   <div class="f"><label for="g_f">今天教了什麼</label><input id="g_f" name="focus" value="${esc(g?.focus)}" placeholder="例：第三拍吊球落點、廚房區耐心"></div>
   <div class="f"><label for="g_n">上課狀況／觀察</label><textarea id="g_n" name="note" placeholder="做得好的地方、需要修正的動作、今天的狀態">${esc(g?.note)}</textarea></div>
   <div class="f"><label for="g_h">回家作業</label><input id="g_h" name="homework" value="${esc(g?.homework)}" placeholder="例：對牆 dink 每天 100 下"></div>
-  <details class="fold" ${prev?'':'open'}><summary>技術評分（選填，1 入門 – 5 熟練）${prev?'　已帶入上次分數':''}</summary>
-  ${SKILLS.map(([k,n])=>`<div class="sk"><label for="sk_${k}">${n}</label><input type="range" id="sk_${k}" name="sk_${k}" min="1" max="5" step="1" value="${Number(sk[k]||2)}" data-out="o_${k}"><output id="o_${k}">${Number(sk[k]||2)}</output></div>`).join('')}</details>
+  ${SK.length?`<details class="fold" ${prev?'':'open'}><summary>技術評分（選填，1 入門 – 5 熟練）${prev?'　已帶入上次分數':''}</summary>
+  ${SK.map(([k,n])=>`<div class="sk"><label for="sk_${k}">${esc(n)}</label><input type="range" id="sk_${k}" name="sk_${k}" min="1" max="5" step="1" value="${Number(sk[k]||2)}" data-out="o_${k}"><output id="o_${k}">${Number(sk[k]||2)}</output></div>`).join('')}</details>`:''}
   <div class="actions"><button class="btn pri grow">儲存</button>${id?`<button type="button" class="btn line" data-act="feedback" data-id="${id}">傳回饋給學生</button>`:''}${delBtn('logs',id)}</div>`,
-  fd=>{const skills=Object.fromEntries(SKILLS.map(([k])=>[k,Number(fd.get('sk_'+k)||1)]));
+  fd=>{const skills={...(g?.skills||{}),...Object.fromEntries(SK.map(([k])=>[k,Number(fd.get('sk_'+k)||1)]))};
     const o={...(g||{}),studentId:fv(fd,'studentId'),date:fv(fd,'date')||today(),lessonId:fv(fd,'lessonId'),focus:fv(fd,'focus'),note:fv(fd,'note'),homework:fv(fd,'homework'),skills,createdAt:g?.createdAt||Date.now()};
     const nid=id||uid();put('logs',nid,o);closeSheet();ui.ntype='feedback';ui.nref=nid;
     toast('已儲存筆記');if(!id){ui.tab='stu';ui.sid=o.studentId;ui.sub=null;render()}});

@@ -82,6 +82,8 @@ document.addEventListener('click',async e=>{
     case 'ics':{const l=byId('lessons',ds.id);if(l)download(`匹克球課_${l.date}.ics`,ics(l),'text/calendar');break}
     case 'export-csv':download(`收支_${ui.month}.csv`,csv(),'text/csv');break;
     case 'export-json':download(`${CONFIG.APP_NAME}_備份_${today()}.json`,JSON.stringify(D),'application/json');break;
+    case 'add-skill':{const box=document.getElementById('skList');if(box){box.insertAdjacentHTML('beforeend',skillRow(uid(),''));box.lastElementChild.querySelector('input').focus()}break}
+    case 'del-skill':b.closest('.skrow')?.remove();break;
     case 'del':{
       if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='再按一次確認刪除';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='刪除'}},3000);break}
       del(ds.col,ds.id);if(ds.col==='students'&&ui.sid===ds.id)ui.sid=null;closeSheet();toast('已刪除');render();break}
@@ -100,15 +102,16 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.input==='nref'){ui.nref=t.value;msgDirty=false;render()}
   if(t.id==='g_s'){document.getElementById('g_l').innerHTML=lessonOptsHtml(t.value,'');const pv=logsOf(t.value)[0];
-    SKILLS.forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
+    skillList().forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
   if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
   if(t.id==='importFile'&&t.files[0]){importBackup(t.files[0]);t.value=''}
 });
 document.addEventListener('submit',e=>{
   e.preventDefault();
   if(e.target.id==='setForm'){const fd=new FormData(e.target);const num=k=>Number(fv(fd,k)||0);
+    const skills=[...e.target.querySelectorAll('#skList [data-skill]')].map(i=>[i.dataset.skill,i.value.trim()]).filter(x=>x[1]);
     const prices={};for(const k of Object.keys(PRICEKIND)){prices[k]={};for(const h of PRICEHEADS[k])prices[k][h]=Math.max(0,num(`price_${k}_${h}`))}
-    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
+    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,skills,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
   if(e.target.id==='sf'&&sheetSubmit)sheetSubmit(new FormData(e.target));
 });
 document.getElementById('fab').addEventListener('click',()=>{

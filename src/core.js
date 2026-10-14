@@ -8,14 +8,16 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.4.4'
+  VERSION: '1.5.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 
 /* ================== 常數 ================== */
-const SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
+// 技術評分項目的預設值；教練可以在設定裡自己增減（存在 settings.skills）
+const DEFAULT_SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
+const skillList=()=>SET().skills;
 const PAYTYPES={single:['課程收費','in'],income:['其他收入','in'],venue:['場地費','out'],gear:['器材','out'],expense:['其他支出','out']};
 const payType=t=>PAYTYPES[t]||['其他','in'];
 const ATTLABEL={present:'出席',leave:'請假',noshow:'未到'};
@@ -30,7 +32,7 @@ const SOURCES=['朋友介紹','Instagram','Facebook','LINE 社群','體驗課','
 const LEADST={inquiry:['詢問中','mute'],trial:['已約體驗','ball'],won:['已成交','good'],lost:['未成交','bad']};
 const COLORS=['#1E5D78','#2E7D55','#B86E12','#B23A3A','#6B4FA0','#0F8A8A','#A0527A','#5A6B70'];
 const COLS=['students','lessons','payments','logs','leads'];
-const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,updatedAt:0};
+const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,skills:null,updatedAt:0};
 
 /* ================== 小工具 ================== */
 const pad=n=>String(n).padStart(2,'0');
@@ -60,6 +62,10 @@ function fillSettings(s){
   const src=o.prices&&typeof o.prices==='object'?o.prices:{normal:{...DEFAULT_PRICES.normal,1:base},trial:{...DEFAULT_PRICES.trial}};
   o.prices={};
   for(const k of Object.keys(PRICEKIND)){o.prices[k]={};for(const n of PRICEHEADS[k]){const v=Number(src[k]?.[n]||0);o.prices[k][n]=v>0?Math.round(v):0}}
+  // skills 沒設定過＝用預設的 8 項；設成空陣列＝教練刻意不要評分功能
+  o.skills=Array.isArray(o.skills)
+    ? o.skills.map(x=>Array.isArray(x)?[String(x[0]||''),String(x[1]||'').trim()]:[String(x?.k||''),String(x?.n||'').trim()]).filter(x=>x[0]&&x[1])
+    : DEFAULT_SKILLS.map(x=>[...x]);
   return o;
 }
 function emptyData(){return {schema:1,settings:fillSettings(),students:{},lessons:{},payments:{},logs:{},leads:{}}}

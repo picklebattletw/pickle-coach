@@ -204,6 +204,9 @@ nav.tabs button.on{color:var(--court)}
 .seg input[value=leave]:checked+span{background:var(--warn);color:#fff}
 .fold{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--surface)}
 .fold>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)}
+.skrow{display:flex;gap:8px;align-items:center;margin-top:8px}
+.skrow input{flex:1;min-width:0}
+.skrow .btn{flex:none;padding:8px 12px}
 .sk{display:grid;grid-template-columns:96px minmax(0,1fr) 22px;gap:8px;align-items:center;margin-top:8px;font-size:14px}
 .sk input{width:100%;accent-color:var(--court)}
 .sk output{font-family:var(--f-num);font-weight:700;font-size:18px;text-align:right}
@@ -269,14 +272,16 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.4.4'
+  VERSION: '1.5.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 
 /* ================== 常數 ================== */
-const SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
+// 技術評分項目的預設值；教練可以在設定裡自己增減（存在 settings.skills）
+const DEFAULT_SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
+const skillList=()=>SET().skills;
 const PAYTYPES={single:['課程收費','in'],income:['其他收入','in'],venue:['場地費','out'],gear:['器材','out'],expense:['其他支出','out']};
 const payType=t=>PAYTYPES[t]||['其他','in'];
 const ATTLABEL={present:'出席',leave:'請假',noshow:'未到'};
@@ -291,7 +296,7 @@ const SOURCES=['朋友介紹','Instagram','Facebook','LINE 社群','體驗課','
 const LEADST={inquiry:['詢問中','mute'],trial:['已約體驗','ball'],won:['已成交','good'],lost:['未成交','bad']};
 const COLORS=['#1E5D78','#2E7D55','#B86E12','#B23A3A','#6B4FA0','#0F8A8A','#A0527A','#5A6B70'];
 const COLS=['students','lessons','payments','logs','leads'];
-const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,updatedAt:0};
+const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,skills:null,updatedAt:0};
 
 /* ================== 小工具 ================== */
 const pad=n=>String(n).padStart(2,'0');
@@ -321,6 +326,10 @@ function fillSettings(s){
   const src=o.prices&&typeof o.prices==='object'?o.prices:{normal:{...DEFAULT_PRICES.normal,1:base},trial:{...DEFAULT_PRICES.trial}};
   o.prices={};
   for(const k of Object.keys(PRICEKIND)){o.prices[k]={};for(const n of PRICEHEADS[k]){const v=Number(src[k]?.[n]||0);o.prices[k][n]=v>0?Math.round(v):0}}
+  // skills 沒設定過＝用預設的 8 項；設成空陣列＝教練刻意不要評分功能
+  o.skills=Array.isArray(o.skills)
+    ? o.skills.map(x=>Array.isArray(x)?[String(x[0]||''),String(x[1]||'').trim()]:[String(x?.k||''),String(x?.n||'').trim()]).filter(x=>x[0]&&x[1])
+    : DEFAULT_SKILLS.map(x=>[...x]);
   return o;
 }
 function emptyData(){return {schema:1,settings:fillSettings(),students:{},lessons:{},payments:{},logs:{},leads:{}}}
@@ -629,15 +638,16 @@ function vStu(){
   <div class="list" style="margin-top:12px">${list.length?list.map(s=>{const la=lastAttended(s.id);return stuRow(s,remainRight(s),`${esc(s.level||'未填程度')}${(s.tags||[]).length?' · '+s.tags.map(t=>'#'+esc(t)).join(' '):''}${la?` · 上次上課 ${dlabel(la)}`:''}`)}).join(''):empty(q||ui.tagf?'找不到符合的學生':ui.sfilter==='active'?'還沒有學生':'這裡沒有學生',ui.sfilter==='active'&&!q?'新增學生':'','new-student')}</div>`;
 }
 function radarSVG(cur,base){
-  const cx=160,cy=128,R=88,n=SKILLS.length;
+  const SK=skillList(),cx=160,cy=128,R=88,n=SK.length;
+  if(n<3)return '';   // 少於 3 項畫不成雷達圖
   const pt=(i,v)=>{const a=-Math.PI/2+i*2*Math.PI/n,r=R*v/5;return[cx+r*Math.cos(a),cy+r*Math.sin(a)]};
   let g='';
-  for(let k=1;k<=5;k++)g+=`<polygon points="${SKILLS.map((_,i)=>pt(i,k).join(',')).join(' ')}" fill="none" stroke="var(--line)" stroke-width="1"/>`;
-  SKILLS.forEach((s,i)=>{const[x,y]=pt(i,5);g+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)"/>`;const[lx,ly]=pt(i,6.15);g+=`<text x="${lx}" y="${ly}" font-size="12" text-anchor="middle" dominant-baseline="middle" fill="var(--muted)">${s[1]}</text>`});
-  const poly=(o,stroke,fill,dash)=>`<polygon points="${SKILLS.map((s,i)=>pt(i,Number(o[s[0]]||0)).join(',')).join(' ')}" fill="${fill}" stroke="${stroke}" stroke-width="2" ${dash?'stroke-dasharray="4 4"':''}/>`;
+  for(let k=1;k<=5;k++)g+=`<polygon points="${SK.map((_,i)=>pt(i,k).join(',')).join(' ')}" fill="none" stroke="var(--line)" stroke-width="1"/>`;
+  SK.forEach((s,i)=>{const[x,y]=pt(i,5);g+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)"/>`;const[lx,ly]=pt(i,6.15);g+=`<text x="${lx}" y="${ly}" font-size="12" text-anchor="middle" dominant-baseline="middle" fill="var(--muted)">${esc(s[1])}</text>`});
+  const poly=(o,stroke,fill,dash)=>`<polygon points="${SK.map((s,i)=>pt(i,Number(o[s[0]]||0)).join(',')).join(' ')}" fill="${fill}" stroke="${stroke}" stroke-width="2" ${dash?'stroke-dasharray="4 4"':''}/>`;
   if(base)g+=poly(base,'var(--muted)','none',true);
   g+=poly(cur,'var(--court)','var(--court-soft)');
-  g+=SKILLS.map((s,i)=>{const[x,y]=pt(i,Number(cur[s[0]]||0));return `<circle cx="${x}" cy="${y}" r="3.5" fill="var(--ball)" stroke="var(--court)" stroke-width="1.5"/>`}).join('');
+  g+=SK.map((s,i)=>{const[x,y]=pt(i,Number(cur[s[0]]||0));return `<circle cx="${x}" cy="${y}" r="3.5" fill="var(--ball)" stroke="var(--court)" stroke-width="1.5"/>`}).join('');
   return `<svg class="radar" viewBox="0 0 320 256" role="img" aria-label="技術雷達圖">${g}</svg>`;
 }
 function vStudent(s){
@@ -660,9 +670,9 @@ function vStudent(s){
   ${s.goal?`<p class="sub" style="margin-top:10px"><span class="lab">目標</span>　${esc(s.goal)}</p>`:''}
   <div class="stats four">${firstStat}<div class="stat"><span>已上課</span><b>${used} 堂</b><small>${rate===null?'&nbsp;':'出席率 '+rate+'%'}</small></div><div class="stat"><span>累計繳費</span><b>${money(paid)}</b><small>${pays.length?`${pays.length} 筆`:'&nbsp;'}</small></div><div class="stat"><span>下一堂</span><b style="font-size:18px">${nl?dlabel(nl.date):'未排'}</b><small>${nl?esc(nl.time):'&nbsp;'}</small></div></div>
   <div class="btns" style="margin-top:14px"><button class="btn pri" data-act="new-log" data-sid="${s.id}">寫上課筆記</button><button class="btn" data-act="new-payment" data-sid="${s.id}" data-type="single">收款</button><button class="btn" data-act="new-lesson" data-sid="${s.id}">排課</button><button class="btn line" data-act="share-report" data-sid="${s.id}">傳學習報告</button><button class="btn" data-act="edit-student" data-id="${s.id}">編輯資料</button></div>
-  <h2>技術能力</h2>
+  ${skillList().length?`<h2>技術能力</h2>
   ${latest?`<div class="card radarwrap"><div>${radarSVG(latest.skills||{},first?.skills)}<div class="legend"><span><i style="background:var(--court)"></i>最新 ${dlabel(latest.date)}</span>${first?`<span><i style="background:var(--muted)"></i>第一次 ${dlabel(first.date)}</span>`:''}</div></div>
-  <div class="bars">${SKILLS.map(([k,n])=>{const v=Number(latest.skills?.[k]||0),b=first?Number(first.skills?.[k]||0):null,d=b!==null?v-b:0;return `<div class="bar"><span>${n}${d>0?` <span class="tag good">+${d}</span>`:''}</span><div class="track"><div class="fill" style="width:${v*20}%"></div></div><span class="v">${v}</span></div>`}).join('')}</div></div>`:empty('還沒有學習紀錄，寫下第一次評估後就會出現雷達圖','寫學習紀錄','new-log',`data-sid="${s.id}"`)}
+  <div class="bars">${skillList().map(([k,n])=>{const v=Number(latest.skills?.[k]||0),b=first?Number(first.skills?.[k]||0):null,d=b!==null?v-b:0;return `<div class="bar"><span>${esc(n)}${d>0?` <span class="tag good">+${d}</span>`:''}</span><div class="track"><div class="fill" style="width:${v*20}%"></div></div><span class="v">${v}</span></div>`}).join('')}</div></div>`:empty('還沒有上課筆記，寫下第一次評分後就會出現雷達圖','寫上課筆記','new-log',`data-sid="${s.id}"`)}`:''}
   <h2>上課歷程與筆記 <span class="tag mute">${items.length}</span></h2>
   ${items.length?`<div class="timeline">${items.map(it=>it.k==='log'?logCard(s,it.o):lessonNoteCard(s,it.o)).join('')}</div>`:empty('每上完一堂課寫一段筆記，這裡就會留下完整的上課歷程','寫上課筆記','new-log',`data-sid="${s.id}"`)}
   ${s.notes?`<h2>備註</h2><div class="card" style="white-space:pre-wrap">${esc(s.notes)}</div>`:''}
@@ -780,6 +790,7 @@ function vStats(){
 }
 
 /* ---------- 設定 ---------- */
+const skillRow=(k,n)=>`<div class="skrow"><input data-skill="${esc(k)}" value="${esc(n)}" maxlength="14" placeholder="例：發球"><button type="button" class="btn sm danger" data-act="del-skill" aria-label="刪除這個項目">✕</button></div>`;
 function vSettings(){
   const s=SET();
   const acct=session.mode==='google'?`<div class="row" style="cursor:default">${session.picture?`<img src="${esc(session.picture)}" alt="" width="38" height="38" style="border-radius:50%" referrerpolicy="no-referrer">`:`<div class="av">${initial(session.name||session.email)}</div>`}<div class="main"><b>${esc(session.name||'Google 帳號')}</b><small>${esc(session.email)}</small></div></div>
@@ -798,6 +809,10 @@ function vSettings(){
   <p class="hint" style="margin:0">填的是整堂課的總收費，不是每人。一般課依 1對1～1對4，體驗課依 4～8 人。留空的格子會沿用相鄰人數的價格。</p>
   ${Object.entries(PRICEKIND).map(([k,n])=>`<div class="pricerow"><span class="lb">${n}${k==='trial'?'（4 人起算）':''}</span><div class="priceg">${PRICEHEADS[k].map(h=>`<div class="f"><label for="pr_${k}_${h}">${headLabel(k,h)}</label><input id="pr_${k}_${h}" type="number" min="0" step="10" inputmode="numeric" name="price_${k}_${h}" value="${esc(s.prices[k][h]||'')}" placeholder="${totalPriceFor(k,h)}"></div>`).join('')}</div></div>`).join('')}
   <p class="hint" style="margin:0">學生的待收款＝這堂總價 ÷ 上課人數。學生資料若填了「個人單價」，則以個人單價為準；排課時也可以單獨指定「本堂總價」（例如場租較高的球場），那一堂就以課程上填的為準。</p></div>
+  <div class="f"><span class="lb">技術評分項目</span>
+  <p class="hint" style="margin:0">寫上課筆記時可以為這些項目打 1～5 分，學生頁會畫成雷達圖。名稱可以直接改，也能刪除或新增；全部刪掉就不會出現評分功能（至少 3 項才畫得出雷達圖）。</p>
+  <div id="skList">${s.skills.map(([k,n])=>skillRow(k,n)).join('')}</div>
+  <button type="button" class="btn sm" data-act="add-skill" style="margin-top:8px;align-self:flex-start">＋ 新增項目</button></div>
   <div class="f"><label for="st_idle">幾天沒上課就提醒（流失風險）</label><input id="st_idle" type="number" min="1" name="inactiveDays" value="${esc(s.inactiveDays)}"></div>
   <div class="actions"><button class="btn pri grow">儲存設定</button></div></form>
   <h2>備份</h2>
@@ -819,14 +834,14 @@ function buildMsg(){
     return (`【${B} 本週課表】\n${dlabel(ws)} – ${dlabel(we)}\n\n`+ls.map(l=>`${dlabel(l.date)} ${l.time}　${l.title||'匹克球課'}${l.location?'｜'+l.location:''}`).join('\n')+`\n\n${sign}`).trim()}
   if(t==='feedback'){const g=byId('logs',ref);if(!g)return '';const s=byId('students',g.studentId);
     const prev=logsOf(g.studentId).find(x=>x.id!==g.id&&((x.date||'')<(g.date||'')||(x.date===g.date&&(x.createdAt||0)<(g.createdAt||0))));
-    const up=prev?SKILLS.filter(([k])=>Number(g.skills?.[k]||0)>Number(prev.skills?.[k]||0)).map(([k,n])=>`${n} ${prev.skills?.[k]||0}→${g.skills[k]}`):[];
+    const up=prev?skillList().filter(([k])=>Number(g.skills?.[k]||0)>Number(prev.skills?.[k]||0)).map(([k,n])=>`${n} ${prev.skills?.[k]||0}→${g.skills[k]}`):[];
     return `【今日學習回饋】\n${s?.name||''} 您好，今天辛苦了！\n📅 ${dlabel(g.date)}\n\n🏓 本堂重點：${g.focus||'—'}\n${up.length?`📈 進步項目：${up.join('、')}\n`:''}${g.note?`📝 教練觀察：${g.note}\n`:''}${g.homework?`🏠 回家練習：${g.homework}\n`:''}\n下次見！${sign}`.trim()}
   if(t==='owe'){const s=byId('students',ref);if(!s)return '';const o=owed(s),nl=nextLesson(s.id),f=logsOf(s.id)[0]?.focus;
     const when=nl?`${dlabel(nl.date)} ${nl.time}–${endTime(nl.time,nl.duration)}`:'';
     return `${s.name} 您好！\n跟您核對一下課程費用：${when?`目前預約 ${when} 的課程，`:''}尚有 ${money(Math.max(0,o))} 未結。\n${f?`這陣子在「${f}」進步很明顯，繼續保持！`:''}`.trim()}
   if(t==='report'){const s=byId('students',ref);if(!s)return '';const ls=logsOf(s.id),g=ls[0],f=ls.length>1?ls[ls.length-1]:null;
     let txt=`【學習報告】${s.name}\n${s.goal?`目標：${s.goal}\n`:''}累計上課：${doneCount(s.id)} 堂｜學習紀錄：${ls.length} 筆\n`;
-    if(g){txt+=`\n技術評估（${dlabel(g.date)}）\n`+SKILLS.map(([k,n])=>{const v=Number(g.skills?.[k]||0),b=f?Number(f.skills?.[k]||0):null;return `${n}　${stars(v)}${b!==null&&v>b?`  ↑${v-b}`:''}`}).join('\n');if(g.homework)txt+=`\n\n下一階段練習：${g.homework}`}
+    if(g){txt+=`\n技術評估（${dlabel(g.date)}）\n`+skillList().map(([k,n])=>{const v=Number(g.skills?.[k]||0),b=f?Number(f.skills?.[k]||0):null;return `${n}　${stars(v)}${b!==null&&v>b?`  ↑${v-b}`:''}`}).join('\n');if(g.homework)txt+=`\n\n下一階段練習：${g.homework}`}
     return (txt+`\n\n${sign}`).trim()}
   if(t==='trial'){const l=byId('leads',ref);if(!l)return '';const st=SET(),tp=Math.round(totalPriceFor('trial',PRICEHEADS.trial[0])/PRICEHEADS.trial[0]);
     return `${l.name} 您好！歡迎來體驗匹克球 🏓\n\n📅 ${l.trialDate?dlabel(l.trialDate):'（時間確認中）'}${l.trialTime?' '+l.trialTime:''}\n📍 ${st.defaultLocation||'（地點另行通知）'}\n${tp>0?`💰 體驗課 ${money(tp)}／人（多人同行另有優惠）\n`:''}\n請穿運動鞋、帶水，球拍現場可借用。\n有任何問題都可以直接回覆這則訊息！\n${sign}`.trim()}
@@ -899,7 +914,7 @@ function studentSheet(id,preset={}){
 
 function lessonSheet(id,preset={}){
   const st=SET();
-  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'一對一私人課',location:st.defaultLocation||''};
+  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'',location:st.defaultLocation||''};
   const att=l.attendance||{};
   const locs=[...new Set([st.defaultLocation,...all('lessons').map(x=>x.location)].filter(Boolean))];
   const studs=all('students').filter(s=>(s.status||'active')==='active'||(l.studentIds||[]).includes(s.id)).sort(byName);
@@ -907,7 +922,7 @@ function lessonSheet(id,preset={}){
   <div class="grid3"><div class="f"><label for="l_date">日期</label><input id="l_date" type="date" name="date" required value="${esc(l.date)}"></div>
   <div class="f"><label for="l_time">開始</label><input id="l_time" type="time" name="time" required value="${esc(l.time)}"></div>
   <div class="f"><label for="l_dur">時長</label><select id="l_dur" name="duration">${[30,45,60,90,120,150,180].map(m=>`<option value="${m}" ${Number(l.duration)===m?'selected':''}>${m} 分</option>`).join('')}</select></div></div>
-  <div class="f"><label for="l_title">課程名稱</label><input id="l_title" name="title" list="titles" value="${esc(l.title)}"><datalist id="titles">${[...new Set(['一對一私人課','雙人課','初學團體班','進階團體班','對打實戰課',...all('lessons').map(x=>x.title)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
+  <div class="f"><label for="l_title">課程名稱（選填）</label><input id="l_title" name="title" list="titles" value="${esc(l.title)}" placeholder="留空就顯示「匹克球課」"><datalist id="titles">${[...new Set(['一對一私人課','雙人課','初學團體班','進階團體班','對打實戰課',...all('lessons').map(x=>x.title)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
   <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
   <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}</div>
   <div class="grid3"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
@@ -925,7 +940,7 @@ function lessonSheet(id,preset={}){
   ${id?`<div class="actions" style="margin-top:8px"><button type="button" class="btn line" data-act="remind-lesson" data-id="${id}">傳上課提醒</button><button type="button" class="btn" data-act="ics" data-id="${id}">加入手機行事曆</button><button type="button" class="btn" data-act="dup-lesson" data-id="${id}">複製到下週</button></div>`:''}`,
   fd=>{
     const sids=fd.getAll('sids').map(String);
-    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title')||'匹克球課',location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),feeTotal:Math.max(0,Math.round(Number(fv(fd,'feeTotal')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
+    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title'),location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),feeTotal:Math.max(0,Math.round(Number(fv(fd,'feeTotal')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
     if(!o.date||!o.time)return toast('請填寫日期和時間');
     const clash=all('lessons').find(x=>x.id!==id&&x.date===o.date&&x.status!=='cancelled'&&toMin(x.time)<toMin(o.time)+o.duration&&toMin(o.time)<toMin(x.time)+Number(x.duration||60));
     if(id){const a={};sids.forEach(s=>{const v=fv(fd,'att_'+s);if(v)a[s]=v});o.attendance=a;o.status=fv(fd,'status')||'scheduled';
@@ -956,7 +971,8 @@ function logSheet(id,preset={}){
   const g=id?byId('logs',id):null;
   const sid=g?.studentId||preset.sid||activeStudents().sort(byName)[0]?.id||all('students')[0].id;
   const prev=g?null:logsOf(sid)[0];
-  const sk=g?.skills||prev?.skills||Object.fromEntries(SKILLS.map(([k])=>[k,2]));
+  const SK=skillList();
+  const sk=g?.skills||prev?.skills||Object.fromEntries(SK.map(([k])=>[k,2]));
   const lid=g?.lessonId||preset.lid||'';
   const date=g?.date||(lid&&byId('lessons',lid)?.date)||today();
   openSheet(id?'編輯上課筆記':'寫上課筆記',`
@@ -966,10 +982,10 @@ function logSheet(id,preset={}){
   <div class="f"><label for="g_f">今天教了什麼</label><input id="g_f" name="focus" value="${esc(g?.focus)}" placeholder="例：第三拍吊球落點、廚房區耐心"></div>
   <div class="f"><label for="g_n">上課狀況／觀察</label><textarea id="g_n" name="note" placeholder="做得好的地方、需要修正的動作、今天的狀態">${esc(g?.note)}</textarea></div>
   <div class="f"><label for="g_h">回家作業</label><input id="g_h" name="homework" value="${esc(g?.homework)}" placeholder="例：對牆 dink 每天 100 下"></div>
-  <details class="fold" ${prev?'':'open'}><summary>技術評分（選填，1 入門 – 5 熟練）${prev?'　已帶入上次分數':''}</summary>
-  ${SKILLS.map(([k,n])=>`<div class="sk"><label for="sk_${k}">${n}</label><input type="range" id="sk_${k}" name="sk_${k}" min="1" max="5" step="1" value="${Number(sk[k]||2)}" data-out="o_${k}"><output id="o_${k}">${Number(sk[k]||2)}</output></div>`).join('')}</details>
+  ${SK.length?`<details class="fold" ${prev?'':'open'}><summary>技術評分（選填，1 入門 – 5 熟練）${prev?'　已帶入上次分數':''}</summary>
+  ${SK.map(([k,n])=>`<div class="sk"><label for="sk_${k}">${esc(n)}</label><input type="range" id="sk_${k}" name="sk_${k}" min="1" max="5" step="1" value="${Number(sk[k]||2)}" data-out="o_${k}"><output id="o_${k}">${Number(sk[k]||2)}</output></div>`).join('')}</details>`:''}
   <div class="actions"><button class="btn pri grow">儲存</button>${id?`<button type="button" class="btn line" data-act="feedback" data-id="${id}">傳回饋給學生</button>`:''}${delBtn('logs',id)}</div>`,
-  fd=>{const skills=Object.fromEntries(SKILLS.map(([k])=>[k,Number(fd.get('sk_'+k)||1)]));
+  fd=>{const skills={...(g?.skills||{}),...Object.fromEntries(SK.map(([k])=>[k,Number(fd.get('sk_'+k)||1)]))};
     const o={...(g||{}),studentId:fv(fd,'studentId'),date:fv(fd,'date')||today(),lessonId:fv(fd,'lessonId'),focus:fv(fd,'focus'),note:fv(fd,'note'),homework:fv(fd,'homework'),skills,createdAt:g?.createdAt||Date.now()};
     const nid=id||uid();put('logs',nid,o);closeSheet();ui.ntype='feedback';ui.nref=nid;
     toast('已儲存筆記');if(!id){ui.tab='stu';ui.sid=o.studentId;ui.sub=null;render()}});
@@ -1162,6 +1178,8 @@ document.addEventListener('click',async e=>{
     case 'ics':{const l=byId('lessons',ds.id);if(l)download(`匹克球課_${l.date}.ics`,ics(l),'text/calendar');break}
     case 'export-csv':download(`收支_${ui.month}.csv`,csv(),'text/csv');break;
     case 'export-json':download(`${CONFIG.APP_NAME}_備份_${today()}.json`,JSON.stringify(D),'application/json');break;
+    case 'add-skill':{const box=document.getElementById('skList');if(box){box.insertAdjacentHTML('beforeend',skillRow(uid(),''));box.lastElementChild.querySelector('input').focus()}break}
+    case 'del-skill':b.closest('.skrow')?.remove();break;
     case 'del':{
       if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='再按一次確認刪除';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='刪除'}},3000);break}
       del(ds.col,ds.id);if(ds.col==='students'&&ui.sid===ds.id)ui.sid=null;closeSheet();toast('已刪除');render();break}
@@ -1180,15 +1198,16 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.input==='nref'){ui.nref=t.value;msgDirty=false;render()}
   if(t.id==='g_s'){document.getElementById('g_l').innerHTML=lessonOptsHtml(t.value,'');const pv=logsOf(t.value)[0];
-    SKILLS.forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
+    skillList().forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
   if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
   if(t.id==='importFile'&&t.files[0]){importBackup(t.files[0]);t.value=''}
 });
 document.addEventListener('submit',e=>{
   e.preventDefault();
   if(e.target.id==='setForm'){const fd=new FormData(e.target);const num=k=>Number(fv(fd,k)||0);
+    const skills=[...e.target.querySelectorAll('#skList [data-skill]')].map(i=>[i.dataset.skill,i.value.trim()]).filter(x=>x[1]);
     const prices={};for(const k of Object.keys(PRICEKIND)){prices[k]={};for(const h of PRICEHEADS[k])prices[k][h]=Math.max(0,num(`price_${k}_${h}`))}
-    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
+    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,skills,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
   if(e.target.id==='sf'&&sheetSubmit)sheetSubmit(new FormData(e.target));
 });
 document.getElementById('fab').addEventListener('click',()=>{
