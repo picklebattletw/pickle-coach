@@ -61,6 +61,7 @@ document.addEventListener('click',async e=>{
     case 'edit-lesson':lessonSheet(ds.id);break;
     case 'dup-lesson':{const f=document.getElementById('sf');if(f&&sheetSubmit)sheetSubmit(new FormData(f));dupSheet(ds.id);break}
     case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);break;
+    case 'rate':closeSheet();logSheet(null,{sid:ds.sid,rate:true});break;
     case 'new-log':{const f=document.getElementById('sf');if(f&&ds.lid&&sheetSubmit)sheetSubmit(new FormData(f));closeSheet();logSheet(null,{sid:ds.sid,lid:ds.lid});break}
     case 'edit-log':logSheet(ds.id);break;
     case 'new-payment':paymentSheet(null,{sid:ds.sid,type:ds.type});break;

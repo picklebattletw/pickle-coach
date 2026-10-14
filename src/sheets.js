@@ -128,7 +128,7 @@ function logSheet(id,preset={}){
   <div class="f"><label for="g_f">今天教了什麼</label><input id="g_f" name="focus" value="${esc(g?.focus)}" placeholder="例：第三拍吊球落點、廚房區耐心"></div>
   <div class="f"><label for="g_n">上課狀況／觀察</label><textarea id="g_n" name="note" placeholder="做得好的地方、需要修正的動作、今天的狀態">${esc(g?.note)}</textarea></div>
   <div class="f"><label for="g_h">回家作業</label><input id="g_h" name="homework" value="${esc(g?.homework)}" placeholder="例：對牆 dink 每天 100 下"></div>
-  ${SK.length?`<details class="fold" ${prev?'':'open'}><summary>技術評分（選填，1 入門 – 5 熟練）${prev?'　已帶入上次分數':''}</summary>
+  ${SK.length?`<details class="fold" ${prev&&!preset.rate?'':'open'}><summary>技術評分（選填，1 入門 – 5 熟練）${prev?'　已帶入上次分數':''}</summary>
   ${SK.map(([k,n])=>`<div class="sk"><label for="sk_${k}">${esc(n)}</label><input type="range" id="sk_${k}" name="sk_${k}" min="1" max="5" step="1" value="${Number(sk[k]||2)}" data-out="o_${k}"><output id="o_${k}">${Number(sk[k]||2)}</output></div>`).join('')}</details>`:''}
   <div class="actions"><button class="btn pri grow">儲存</button>${id?`<button type="button" class="btn line" data-act="feedback" data-id="${id}">傳回饋給學生</button>`:''}${delBtn('logs',id)}</div>`,
   fd=>{const skills={...(g?.skills||{}),...Object.fromEntries(SK.map(([k])=>[k,Number(fd.get('sk_'+k)||1)]))};

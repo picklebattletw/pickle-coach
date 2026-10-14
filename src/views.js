@@ -148,7 +148,7 @@ function vStudent(s){
   ${s.goal?`<p class="sub" style="margin-top:10px"><span class="lab">目標</span>　${esc(s.goal)}</p>`:''}
   <div class="stats four">${firstStat}<div class="stat"><span>已上課</span><b>${used} 堂</b><small>${rate===null?'&nbsp;':'出席率 '+rate+'%'}</small></div><div class="stat"><span>累計繳費</span><b>${money(paid)}</b><small>${pays.length?`${pays.length} 筆`:'&nbsp;'}</small></div><div class="stat"><span>下一堂</span><b style="font-size:18px">${nl?dlabel(nl.date):'未排'}</b><small>${nl?esc(nl.time):'&nbsp;'}</small></div></div>
   <div class="btns" style="margin-top:14px"><button class="btn pri" data-act="new-log" data-sid="${s.id}">寫上課筆記</button><button class="btn" data-act="new-payment" data-sid="${s.id}" data-type="single">收款</button><button class="btn" data-act="new-lesson" data-sid="${s.id}">排課</button><button class="btn line" data-act="share-report" data-sid="${s.id}">傳學習報告</button><button class="btn" data-act="edit-student" data-id="${s.id}">編輯資料</button></div>
-  ${skillList().length?`<h2>技術能力</h2>
+  ${skillList().length?`<h2>技術能力 <button class="btn sm more" data-act="rate" data-sid="${s.id}">更新評分</button></h2>
   ${latest?`<div class="card radarwrap"><div>${radarSVG(latest.skills||{},first?.skills)}<div class="legend"><span><i style="background:var(--court)"></i>最新 ${dlabel(latest.date)}</span>${first?`<span><i style="background:var(--muted)"></i>第一次 ${dlabel(first.date)}</span>`:''}</div></div>
   <div class="bars">${skillList().map(([k,n])=>{const v=Number(latest.skills?.[k]||0),b=first?Number(first.skills?.[k]||0):null,d=b!==null?v-b:0;return `<div class="bar"><span>${esc(n)}${d>0?` <span class="tag good">+${d}</span>`:''}</span><div class="track"><div class="fill" style="width:${v*20}%"></div></div><span class="v">${v}</span></div>`}).join('')}</div></div>`:empty('還沒有上課筆記，寫下第一次評分後就會出現雷達圖','寫上課筆記','new-log',`data-sid="${s.id}"`)}`:''}
   <h2>上課歷程與筆記 <span class="tag mute">${items.length}</span></h2>
@@ -167,7 +167,7 @@ function logCard(s,g){
   ${g.note?`<p>${esc(g.note)}</p>`:''}
   ${g.homework?`<p><span class="lab">回家作業</span>　${esc(g.homework)}</p>`:''}
   ${l&&l.note?`<p><span class="lab">課程備註</span>　${esc(l.note)}</p>`:''}
-  ${!g.focus&&!g.note&&!g.homework&&!(l&&l.note)?'<p class="hint" style="margin:0">這筆筆記是空的，點一下補寫</p>':''}</div></div>`;
+  ${!g.focus&&!g.note&&!g.homework&&!(l&&l.note)?`<p class="hint" style="margin:0">${Object.keys(g.skills||{}).length?'這筆只更新了技術評分':'這筆筆記是空的，點一下補寫'}</p>`:''}</div></div>`;
 }
 // 還沒寫筆記的那一堂
 function lessonNoteCard(s,l){
