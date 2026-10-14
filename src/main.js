@@ -8,7 +8,7 @@ function showGate(){
   const g=document.getElementById('gate');g.hidden=false;
   const prev=lsGet('pcb:lastEmail');
   g.innerHTML=`<div class="gate">
-    <svg class="ball" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="var(--ball)"/><g fill="var(--court)" opacity=".8"><circle cx="11" cy="11" r="1.8"/><circle cx="19" cy="9" r="1.8"/><circle cx="23" cy="16" r="1.8"/><circle cx="15" cy="17" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="19" cy="23" r="1.8"/><circle cx="12" cy="25" r="1.4"/></g></svg>
+    <img class="brandlogo" src="logo.png" alt="Pickle Battle" width="1100" height="393">
     <h1>${esc(CONFIG.APP_NAME)}</h1>
     <p class="sub">給匹克球教練的學生、課表、收費與學習紀錄管理工具。</p>
     <ul>
