@@ -280,7 +280,7 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.7.0'
+  VERSION: '1.7.1'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -970,7 +970,7 @@ function lessonSheet(id,preset={}){
   ${!id?`<div class="f"><label for="l_rep">每週重複</label><select id="l_rep" name="repeat">${[1,2,4,6,8,10,12].map(n=>`<option value="${n}">${n===1?'不重複':`共 ${n} 週`}</option>`).join('')}</select></div>`:''}
   ${id&&(l.studentIds||[]).length?`<div class="f"><span class="lb">點名</span>${l.studentIds.map(sid=>{const chg=['present','noshow'].includes(att[sid]);
     return `<div class="att"><b>${esc(sname(sid))}</b><div class="seg">${[['present','出席'],['leave','請假'],['noshow','未到']].map(([v,n])=>`<label><input type="radio" name="att_${sid}" value="${v}" ${att[sid]===v?'checked':''}><span>${n}</span></label>`).join('')}</div>
-    <label class="paid"><input type="checkbox" name="paid_${sid}" ${lessonPayOf(id,sid)?'checked':''} ${chg?'':'disabled'}> 已收 ${money(studentFee(l,byId('students',sid)))}</label></div>`}).join('')}<p class="hint">請假不計費；未到仍會計費。勾「已收」儲存後會自動在收支記上一筆，待收款就歸零了。</p>${l.studentIds.length>1?'<div class="btns" style="margin-top:8px"><button type="button" class="btn sm" data-act="all-present">全部出席</button><button type="button" class="btn sm" data-act="all-paid">全部已收</button></div>':''}
+    <label class="paid"><input type="checkbox" name="paid_${sid}" ${lessonPayOf(id,sid)?'checked':''} ${chg&&l.deduct!==false?'':'disabled'}> 已收 <span class="amt2">${money(studentFee(l,byId('students',sid)))}</span></label></div>`}).join('')}<p class="hint">請假不計費；未到仍會計費。勾「已收」儲存後會自動在收支記上一筆，待收款就歸零了。</p>${l.studentIds.length>1?'<div class="btns" style="margin-top:8px"><button type="button" class="btn sm" data-act="all-present">全部出席</button><button type="button" class="btn sm" data-act="all-paid">全部已收</button></div>':''}
   <div class="btns" style="margin-top:8px">${l.studentIds.map(sid=>`<button type="button" class="btn sm" data-act="new-log" data-sid="${sid}" data-lid="${id}">✎ ${esc(sname(sid))}的筆記</button>`).join('')}</div>
   <p class="hint">按筆記會先把這堂的點名存起來，再開筆記。</p></div>`:''}
   ${id?`<div class="f"><label for="l_st">狀態</label><select id="l_st" name="status"><option value="scheduled" ${l.status==='scheduled'?'selected':''}>已排定</option><option value="done" ${l.status==='done'?'selected':''}>已完成</option><option value="cancelled" ${l.status==='cancelled'?'selected':''}>已取消</option></select></div>`:''}
@@ -1001,16 +1001,27 @@ function lessonSheet(id,preset={}){
 }
 // 排課表單裡即時顯示這堂的收費（改人數、時長、課程性質時會重算）
 function feeInfo(){
-  const f=document.getElementById('sf'),box=document.getElementById('l_feeinfo');if(!f||!box)return;
+  const f=document.getElementById('sf');if(!f)return;
   const kind=document.getElementById('l_fee')?.value==='trial'?'trial':'normal';
   const manual=Math.round(Number(document.getElementById('l_heads')?.value||0));
   const n=manual>0?manual:Math.max(1,f.querySelectorAll('input[name="sids"]:checked').length);
   const own=Math.max(0,Math.round(Number(document.getElementById('l_price')?.value||0)));
-  const l={feeKind:kind,payHeads:n,feeTotal:own,duration:Number(document.getElementById('l_dur')?.value||60)};
-  const bh=billHeads(l),tot=lessonFee(l);
-  box.textContent=`${PRICEKIND[kind]} ${headLabel(kind,bh)}：整堂 ${money(tot)}，平均每人 ${money(perHead(l))}。`
-    +(own>0?'這堂是自訂總價，不受價目表影響。':bh!==n?`（${PRICEKIND[kind]}價目表最少 ${PRICEHEADS[kind][0]} 人起算）`:'')
-    +(own>0?'':'價格可到「更多 › 設定 › 課程價目表」調整，或在上面直接填這堂的總價。');
+  const charge=f.querySelector('[name="deduct"]')?.checked!==false;
+  const l={feeKind:kind,payHeads:n,feeTotal:own,deduct:charge,duration:Number(document.getElementById('l_dur')?.value||60)};
+  const box=document.getElementById('l_feeinfo');
+  if(box){const bh=billHeads(l),tot=lessonFee(l);
+    box.textContent=`${PRICEKIND[kind]} ${headLabel(kind,bh)}：整堂 ${money(tot)}，平均每人 ${money(perHead(l))}。`
+      +(own>0?'這堂是自訂總價，不受價目表影響。':bh!==n?`（${PRICEKIND[kind]}價目表最少 ${PRICEHEADS[kind][0]} 人起算）`:'')
+      +(own>0?'':'價格可到「更多 › 設定 › 課程價目表」調整，或在上面直接填這堂的總價。');}
+  // 點名列的「已收 NT$X」要跟著現在表單上的設定走，不是用存檔前的舊資料
+  f.querySelectorAll('.att').forEach(row=>{
+    const cb=row.querySelector('[name^="paid_"]');if(!cb)return;
+    const sid=cb.name.slice(5),amt=row.querySelector('.amt2');
+    if(amt)amt.textContent=money(studentFee(l,byId('students',sid)));
+    const att=row.querySelector('input[type=radio]:checked')?.value;
+    const can=charge&&['present','noshow'].includes(att);
+    cb.disabled=!can;if(!can)cb.checked=false;
+  });
 }
 
 // 把一堂課複製到自己挑的日期時間（學生、地點、收費設定一起帶過去）
@@ -1222,7 +1233,7 @@ document.addEventListener('click',async e=>{
     case 'new-lesson':lessonSheet(null,{d:ds.d,sid:ds.sid});break;
     case 'edit-lesson':lessonSheet(ds.id);break;
     case 'dup-lesson':{const f=document.getElementById('sf');if(f&&sheetSubmit)sheetSubmit(new FormData(f));dupSheet(ds.id);break}
-    case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);document.querySelectorAll('#sf input[name^=paid_]').forEach(c=>c.disabled=false);break;
+    case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);feeInfo();break;
     case 'all-paid':document.querySelectorAll('#sf input[name^=paid_]:not([disabled])').forEach(c=>c.checked=true);break;
     case 'rate':closeSheet();logSheet(null,{sid:ds.sid,rate:true});break;
     case 'new-log':{const f=document.getElementById('sf');if(f&&ds.lid&&sheetSubmit)sheetSubmit(new FormData(f));closeSheet();logSheet(null,{sid:ds.sid,lid:ds.lid});break}
@@ -1268,10 +1279,7 @@ document.addEventListener('change',e=>{
   if(t.dataset.input==='nref'){ui.nref=t.value;msgDirty=false;render()}
   if(t.id==='g_s'){document.getElementById('g_l').innerHTML=lessonOptsHtml(t.value,'');const pv=logsOf(t.value)[0];
     skillList().forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
-  if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
-  // 改點名時，連動「已收費」能不能勾（請假就不能收費）
-  if(t.name&&t.name.startsWith('att_')){const cb=document.querySelector(`#sf [name="paid_${t.name.slice(4)}"]`);
-    if(cb){const on=['present','noshow'].includes(t.value);cb.disabled=!on;if(!on)cb.checked=false}}
+  if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids'||t.name==='deduct'||(t.name||'').startsWith('att_'))feeInfo();
   if(t.id==='importFile'&&t.files[0]){importBackup(t.files[0]);t.value=''}
 });
 document.addEventListener('submit',e=>{
