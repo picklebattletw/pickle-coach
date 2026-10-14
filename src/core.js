@@ -8,7 +8,7 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.5.2'
+  VERSION: '1.6.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -140,7 +140,27 @@ const logsOf=sid=>all('logs').filter(l=>l.studentId===sid).sort((a,b)=>(b.date||
 const sname=id=>byId('students',id)?.name||'（已刪除）';
 const names=l=>(l.studentIds||[]).map(sname).join('、')||'尚未指定學生';
 const activeStudents=()=>all('students').filter(s=>(s.status||'active')==='active');
-function monthSum(m){let inc=0,exp=0;all('payments').filter(p=>(p.date||'').startsWith(m)).forEach(p=>{payType(p.type)[1]==='out'?exp+=Number(p.amount||0):inc+=Number(p.amount||0)});return{inc,exp}}
+/* ---- 統計期間：月／季／年 ---- */
+const PERIODS=[['month','月'],['quarter','季'],['year','年']];
+const lastDayOf=(y,m)=>fmt(new Date(y,m,0));                 // 該月最後一天
+// anchor 是 'YYYY-MM'，回傳這個期間的起訖日與標題
+function periodRange(anchor,period){
+  const [y,m]=String(anchor||today().slice(0,7)).split('-').map(Number);
+  if(period==='year')return {from:`${y}-01-01`,to:`${y}-12-31`,title:`${y} 年`};
+  if(period==='quarter'){const q=Math.floor((m-1)/3),s=q*3+1,e=q*3+3;
+    return {from:`${y}-${pad(s)}-01`,to:lastDayOf(y,e),title:`${y} 年 第 ${q+1} 季（${s}–${e} 月）`}}
+  return {from:`${y}-${pad(m)}-01`,to:lastDayOf(y,m),title:`${y} 年 ${m} 月`};
+}
+// 往前／往後移動一個期間
+function shiftPeriod(anchor,period,d){
+  const [y,m]=String(anchor||today().slice(0,7)).split('-').map(Number);
+  const step=period==='year'?12:period==='quarter'?3:1;
+  const x=new Date(y,m-1+d*step,1);return x.getFullYear()+'-'+pad(x.getMonth()+1);
+}
+function sumRange(from,to){let inc=0,exp=0;
+  all('payments').filter(p=>(p.date||'')>=from&&(p.date||'')<=to).forEach(p=>{payType(p.type)[1]==='out'?exp+=Number(p.amount||0):inc+=Number(p.amount||0)});
+  return{inc,exp}}
+function monthSum(m){const r=periodRange(m,'month');return sumRange(r.from,r.to)}
 function sColor(s){return s?.color||COLORS[0]}
 const initial=n=>esc(String(n||'?').replace(/^範例・/,'').slice(0,1));
 

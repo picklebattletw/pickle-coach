@@ -1,5 +1,5 @@
 /* ================== 畫面狀態 ================== */
-const ui={tab:'today',sub:null,sid:null,week:weekStart(today()),day:today(),month:today().slice(0,7),q:'',sfilter:'active',tagf:'',ntype:'remind',nref:'',leadf:'open'};
+const ui={tab:'today',sub:null,sid:null,week:weekStart(today()),day:today(),month:today().slice(0,7),period:'month',q:'',sfilter:'active',tagf:'',ntype:'remind',nref:'',leadf:'open'};
 let msgDirty=false;
 
 function render(){
@@ -185,22 +185,23 @@ function txRow(p){
 
 /* ---------- 收支 ---------- */
 function vMoney(){
-  const m=ui.month,[y,mo]=m.split('-').map(Number);
-  const list=all('payments').filter(p=>(p.date||'').startsWith(m)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const {inc,exp}=monthSum(m);
+  const pr=ui.period,R=periodRange(ui.month,pr),unit={month:'月',quarter:'季',year:'年'}[pr];
+  const list=all('payments').filter(p=>(p.date||'')>=R.from&&(p.date||'')<=R.to).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const {inc,exp}=sumRange(R.from,R.to);
   const cats={};list.forEach(p=>{cats[p.type]=(cats[p.type]||0)+Number(p.amount||0)});
   const max=Math.max(1,...Object.values(cats));
-  const ym=d=>{const x=new Date(y,mo-1+d,1);return x.getFullYear()+'-'+pad(x.getMonth()+1)};
-  const done=all('lessons').filter(l=>l.date.startsWith(m)&&l.status!=='cancelled'&&l.date<=today()).length;
+  const done=all('lessons').filter(l=>l.date>=R.from&&l.date<=R.to&&l.status!=='cancelled'&&l.date<=today()).length;
   const owes=activeStudents().map(s=>({s,o:owed(s)})).filter(x=>x.o>0);
-  return `<p class="eyebrow">收支</p><h1>${y} 年 ${mo} 月</h1>
-  <div class="weekbar"><button class="btn sm" data-act="month" data-m="${ym(-1)}">‹ 上月</button><div class="t"></div><button class="btn sm" data-act="month" data-m="${ym(1)}">下月 ›</button></div>
+  const sub=pr==='month'?'':`<p class="hint" style="margin:4px 0 0">${dlabel(R.from)} – ${dlabel(R.to)}</p>`;
+  return `<p class="eyebrow">收支</p><h1>${esc(R.title)}</h1>${sub}
+  <div class="pseg" style="margin-top:10px">${PERIODS.map(([k,n])=>`<button type="button" class="${pr===k?'on':''}" data-act="period" data-k="${k}">${n}</button>`).join('')}</div>
+  <div class="weekbar"><button class="btn sm" data-act="month" data-m="${shiftPeriod(ui.month,pr,-1)}">‹ ${pr==='month'?'上個月':'上一'+unit}</button><div class="t"></div><button class="btn sm" data-act="month" data-m="${shiftPeriod(ui.month,pr,1)}">${pr==='month'?'下個月':'下一'+unit} ›</button></div>
   <div class="stats"><div class="stat"><span>收入</span><b style="color:var(--good)">${money(inc)}</b></div><div class="stat"><span>支出</span><b style="color:var(--bad)">${money(exp)}</b></div><div class="stat"><span>淨額</span><b>${money(inc-exp)}</b></div></div>
-  <p class="hint">本月已上 ${done} 堂${done?`，平均每堂淨收入 ${money((inc-exp)/done)}`:''}</p>
-  <div class="btns" style="margin-top:12px"><button class="btn pri" data-act="new-payment">＋ 記一筆</button><button class="btn" data-act="export-csv">匯出本月 CSV</button></div>
-  ${owes.length?`<h2>單堂制待收款 <span class="tag bad">${owes.length}</span></h2><div class="list">${owes.map(({s,o})=>stuRow(s,`<div class="right neg"><b>${money(o)}</b><small>待收</small></div>`,'點進去登記收款')).join('')}</div>`:''}
+  <p class="hint">這段期間已上 ${done} 堂${done?`，平均每堂淨收入 ${money((inc-exp)/done)}`:''}</p>
+  <div class="btns" style="margin-top:12px"><button class="btn pri" data-act="new-payment">＋ 記一筆</button><button class="btn" data-act="export-csv">匯出這段期間 CSV</button></div>
+  ${owes.length?`<h2>待收款 <span class="tag bad">${owes.length}</span></h2><div class="list">${owes.map(({s,o})=>stuRow(s,`<div class="right neg"><b>${money(o)}</b><small>待收</small></div>`,'點進去登記收款')).join('')}</div>`:''}
   ${Object.keys(cats).length?`<h2>分類</h2><div class="card" style="display:flex;flex-direction:column;gap:8px">${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="cat"><span>${esc(payType(k)[0])}</span><div class="track"><div class="fill" style="width:${v/max*100}%;background:${payType(k)[1]==='out'?'var(--bad)':'var(--good)'}"></div></div><span class="num" style="font-weight:600">${money(v)}</span></div>`).join('')}</div>`:''}
-  <h2>明細</h2><div class="list">${list.length?list.map(txRow).join(''):empty('這個月還沒有收支紀錄','記一筆','new-payment')}</div>`;
+  <h2>明細 ${list.length?`<span class="tag mute">${list.length}</span>`:''}</h2><div class="list">${list.length?list.map(txRow).join(''):empty('這段期間還沒有收支紀錄','記一筆','new-payment')}</div>`;
 }
 
 /* ---------- 更多 ---------- */
@@ -251,6 +252,7 @@ function vStats(){
   let heads=0;all('lessons').filter(l=>l.date.startsWith(year)).forEach(l=>(l.studentIds||[]).forEach(sid=>{if(counted(l,sid))heads++}));
   const perSession=heads?lessonInc/heads:0;
   const dueAll=activeStudents().reduce((a,s)=>a+Math.max(0,owed(s)),0);
+  const qmax=Math.max(1,...[0,1,2,3].map(q=>{const r=periodRange(`${year}-${pad(q*3+1)}`,'quarter');return sumRange(r.from,r.to).inc}));
   const rank={};all('payments').filter(p=>p.studentId&&payType(p.type)[1]==='in').forEach(p=>rank[p.studentId]=(rank[p.studentId]||0)+Number(p.amount||0));
   const top5=Object.entries(rank).filter(([id])=>byId('students',id)).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const rmax=Math.max(1,...top5.map(x=>x[1]));
@@ -262,6 +264,9 @@ function vStats(){
   <div class="stats four"><div class="stat"><span>出席率</span><b>${rate===null?'—':rate+'%'}</b><small>近 90 天</small></div><div class="stat"><span>每人次均價</span><b>${perSession?money(perSession):'—'}</b><small>今年收入 ÷ 人次</small></div><div class="stat"><span>待收款合計</span><b style="color:${dueAll>0?'var(--bad)':'inherit'}">${money(dueAll)}</b><small>上課中的學生</small></div><div class="stat"><span>最忙月份</span><b>${busiest?Number(busiest[0].slice(5))+' 月':'—'}</b><small>${busiest?busiest[1]+' 堂':'&nbsp;'}</small></div></div>
   <h2>近六個月收支</h2><div class="card">${svg}<div class="legend"><span><i style="background:var(--good)"></i>收入</span><span><i style="background:var(--bad)"></i>支出</span></div></div>
   <p class="hint">今年課程收入合計 ${money(lessonInc)}</p>
+  <h2>各季收支</h2><div class="card" style="display:flex;flex-direction:column;gap:10px">${[0,1,2,3].map(q=>{const r=periodRange(`${year}-${pad(q*3+1)}`,'quarter'),v=sumRange(r.from,r.to);
+    return `<div class="cat"><span>第 ${q+1} 季<br><small style="color:var(--muted)">${q*3+1}–${q*3+3} 月</small></span><div class="track"><div class="fill" style="width:${Math.min(100,v.inc/Math.max(1,qmax)*100)}%;background:var(--good)"></div></div><span class="num" style="font-weight:600;white-space:nowrap">${money(v.inc-v.exp)}</span></div>`}).join('')}</div>
+  <p class="hint">長條是收入，右邊數字是淨額（收入 − 支出）。</p>
   <h2>學生繳費排行</h2>${top5.length?`<div class="card" style="display:flex;flex-direction:column;gap:8px">${top5.map(([id,v],i)=>`<div class="cat"><span>${i+1}. ${esc(sname(id))}</span><div class="track"><div class="fill" style="width:${v/rmax*100}%;background:var(--court)"></div></div><span class="num" style="font-weight:600">${money(v)}</span></div>`).join('')}</div>`:'<div class="empty">還沒有繳費紀錄</div>'}
   <h2>學生來源</h2>${all('students').length?`<div class="card" style="display:flex;flex-direction:column;gap:8px">${Object.entries(stuSrc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="cat"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${v/smax*100}%;background:var(--ball)"></div></div><span class="num" style="font-weight:600">${v} 位</span></div>`).join('')}</div>`:'<div class="empty">還沒有學生</div>'}
   <h2>各來源成交率</h2>${Object.values(src).some(x=>x.n)?`<div class="list">${Object.entries(src).filter(([,x])=>x.n).sort((a,b)=>b[1].n-a[1].n).map(([k,x])=>`<div class="row" style="cursor:default"><div class="main"><b>${esc(k)}</b><small>${x.n} 位潛在客群，成交 ${x.w} 位</small></div><div class="right"><b>${x.c?Math.round(x.w/x.c*100)+'%':'—'}</b><small>成交率</small></div></div>`).join('')}</div>`:'<div class="empty">到「潛在客群」記錄詢問和體驗課的人，這裡就會算出各來源的成交率</div>'}`;

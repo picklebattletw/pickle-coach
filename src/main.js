@@ -74,6 +74,7 @@ document.addEventListener('click',async e=>{
     case 'week':ui.week=addDays(ui.week,Number(ds.n));ui.day=ui.week;render();break;
     case 'week-today':ui.week=weekStart(today());ui.day=today();render();break;
     case 'month':ui.month=ds.m;render();break;
+    case 'period':ui.period=ds.k;render();break;
     case 'ntype':ui.ntype=ds.k;ui.nref='';render();break;
     case 'share-week':toMsg('week');break;
     case 'share-report':toMsg('report',ds.sid);break;
@@ -81,7 +82,7 @@ document.addEventListener('click',async e=>{
     case 'feedback':toMsg('feedback',ds.id);break;
     case 'copy':{const ta=document.getElementById('msgText');try{await navigator.clipboard.writeText(ta.value);toast('已複製，可以貼到 LINE')}catch(_){ta.focus();ta.select();toast('已選取文字，請長按複製')}break}
     case 'ics':{const l=byId('lessons',ds.id);if(l)download(`匹克球課_${l.date}.ics`,ics(l),'text/calendar');break}
-    case 'export-csv':download(`收支_${ui.month}.csv`,csv(),'text/csv');break;
+    case 'export-csv':{const R=periodRange(ui.month,ui.period);download(`收支_${R.from}_${R.to}.csv`,csv(),'text/csv');break}
     case 'export-json':download(`${CONFIG.APP_NAME}_備份_${today()}.json`,JSON.stringify(D),'application/json');break;
     case 'add-skill':{const box=document.getElementById('skList');if(box){box.insertAdjacentHTML('beforeend',skillRow(uid(),''));box.lastElementChild.querySelector('input').focus()}break}
     case 'del-skill':b.closest('.skrow')?.remove();break;

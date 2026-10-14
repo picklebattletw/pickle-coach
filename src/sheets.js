@@ -186,7 +186,8 @@ function ics(l){
 }
 function csv(){
   const rows=[['日期','類別','收支','學生','金額','方式','備註']];
-  all('payments').filter(p=>(p.date||'').startsWith(ui.month)).sort((a,b)=>a.date.localeCompare(b.date)).forEach(p=>{const[n,d]=payType(p.type);rows.push([p.date,n,d==='in'?'收入':'支出',p.studentId?sname(p.studentId):'',p.amount,p.method||'',p.note||''])});
+  const R=periodRange(ui.month,ui.period);
+  all('payments').filter(p=>(p.date||'')>=R.from&&(p.date||'')<=R.to).sort((a,b)=>a.date.localeCompare(b.date)).forEach(p=>{const[n,d]=payType(p.type);rows.push([p.date,n,d==='in'?'收入':'支出',p.studentId?sname(p.studentId):'',p.amount,p.method||'',p.note||''])});
   return '﻿'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
 }
 function importBackup(file){
