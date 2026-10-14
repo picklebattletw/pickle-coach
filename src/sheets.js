@@ -126,9 +126,8 @@ function paymentSheet(id,preset={}){
   const s=preset.sid?byId('students',preset.sid):null;
   const p=id?byId('payments',id):{type:preset.type||'single',studentId:preset.sid||'',date:today(),method:'轉帳',amount:s?Math.max(0,owed(s)):''};
   const due=preset.sid&&!id?owed(s):null;
-  const opts=Object.entries(PAYTYPES).concat(byId('payments',id)&&!PAYTYPES[p.type]?[[p.type,payType(p.type)]]:[]);
   openSheet(id?'編輯收支':(preset.sid?'收款':'記一筆'),`
-  <div class="f"><label for="p_t">類別</label><select id="p_t" name="type">${opts.map(([k,[n,d]])=>`<option value="${k}" ${p.type===k?'selected':''}>${d==='in'?'收入':'支出'}・${n}</option>`).join('')}</select></div>
+  <div class="f"><label for="p_t">類別</label><select id="p_t" name="type">${Object.entries(PAYTYPES).map(([k,[n,d]])=>`<option value="${k}" ${p.type===k?'selected':''}>${d==='in'?'收入':'支出'}・${n}</option>`).join('')}</select></div>
   <div class="f"><label for="p_s">學生</label><select id="p_s" name="studentId">${studentOptions(p.studentId,true)}</select></div>
   <div class="grid2"><div class="f"><label for="p_a">金額（元）</label><input id="p_a" type="number" min="0" step="1" inputmode="numeric" name="amount" required value="${esc(p.amount)}"></div>
   <div class="f"><label for="p_d">日期</label><input id="p_d" type="date" name="date" value="${esc(p.date)}"></div></div>

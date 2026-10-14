@@ -247,7 +247,7 @@ function vStats(){
   const rate=marks.length?Math.round(marks.filter(v=>v==='present').length/marks.length*100):null;
   const year=t.slice(0,4),byMonth={};all('lessons').filter(l=>l.date.startsWith(year)&&l.status!=='cancelled').forEach(l=>{const k=l.date.slice(0,7);byMonth[k]=(byMonth[k]||0)+1});
   const busiest=Object.entries(byMonth).sort((a,b)=>b[1]-a[1])[0];
-  const lessonInc=all('payments').filter(p=>p.date?.startsWith(year)&&LESSONPAY.includes(p.type)).reduce((a,p)=>a+Number(p.amount||0),0);
+  const lessonInc=all('payments').filter(p=>p.date?.startsWith(year)&&p.type==='single').reduce((a,p)=>a+Number(p.amount||0),0);
   let heads=0;all('lessons').filter(l=>l.date.startsWith(year)).forEach(l=>(l.studentIds||[]).forEach(sid=>{if(counted(l,sid))heads++}));
   const perSession=heads?lessonInc/heads:0;
   const dueAll=activeStudents().reduce((a,s)=>a+Math.max(0,owed(s)),0);
@@ -309,8 +309,9 @@ function buildMsg(){
     const prev=logsOf(g.studentId).find(x=>x.id!==g.id&&((x.date||'')<(g.date||'')||(x.date===g.date&&(x.createdAt||0)<(g.createdAt||0))));
     const up=prev?SKILLS.filter(([k])=>Number(g.skills?.[k]||0)>Number(prev.skills?.[k]||0)).map(([k,n])=>`${n} ${prev.skills?.[k]||0}→${g.skills[k]}`):[];
     return `【今日學習回饋】\n${s?.name||''} 您好，今天辛苦了！\n📅 ${dlabel(g.date)}\n\n🏓 本堂重點：${g.focus||'—'}\n${up.length?`📈 進步項目：${up.join('、')}\n`:''}${g.note?`📝 教練觀察：${g.note}\n`:''}${g.homework?`🏠 回家練習：${g.homework}\n`:''}\n下次見！${sign}`.trim()}
-  if(t==='owe'){const s=byId('students',ref);if(!s)return '';const o=owed(s),n=doneCount(s.id),f=logsOf(s.id)[0]?.focus;
-    return `${s.name} 您好！\n跟您核對一下課程費用：目前已上課 ${n} 堂，尚有 ${money(Math.max(0,o))} 未結。\n${f?`這陣子在「${f}」進步很明顯，繼續保持！\n`:''}\n方便的話下次上課時帶來，或先轉帳都可以，有問題再跟我說，謝謝您！\n${sign}`.trim()}
+  if(t==='owe'){const s=byId('students',ref);if(!s)return '';const o=owed(s),nl=nextLesson(s.id),f=logsOf(s.id)[0]?.focus;
+    const when=nl?`${dlabel(nl.date)} ${nl.time}–${endTime(nl.time,nl.duration)}`:'';
+    return `${s.name} 您好！\n跟您核對一下課程費用：${when?`目前預約 ${when} 的課程，`:''}尚有 ${money(Math.max(0,o))} 未結。\n${f?`這陣子在「${f}」進步很明顯，繼續保持！\n`:''}\n方便的話上課時帶來，或先轉帳都可以，有問題再跟我說，謝謝您！\n${sign}`.trim()}
   if(t==='report'){const s=byId('students',ref);if(!s)return '';const ls=logsOf(s.id),g=ls[0],f=ls.length>1?ls[ls.length-1]:null;
     let txt=`【學習報告】${s.name}\n${s.goal?`目標：${s.goal}\n`:''}累計上課：${doneCount(s.id)} 堂｜學習紀錄：${ls.length} 筆\n`;
     if(g){txt+=`\n技術評估（${dlabel(g.date)}）\n`+SKILLS.map(([k,n])=>{const v=Number(g.skills?.[k]||0),b=f?Number(f.skills?.[k]||0):null;return `${n}　${stars(v)}${b!==null&&v>b?`  ↑${v-b}`:''}`}).join('\n');if(g.homework)txt+=`\n\n下一階段練習：${g.homework}`}

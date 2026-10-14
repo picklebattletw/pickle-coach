@@ -263,7 +263,7 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.4.0'
+  VERSION: '1.4.1'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -272,10 +272,7 @@ const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 /* ================== 常數 ================== */
 const SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
 const PAYTYPES={single:['課程收費','in'],income:['其他收入','in'],venue:['場地費','out'],gear:['器材','out'],expense:['其他支出','out']};
-// 舊版「課程包」的資料仍要看得到、也要算進已收的課程費，但不再提供新增
-const OLDPAYTYPES={package:['課程收費（舊課程包）','in']};
-const payType=t=>PAYTYPES[t]||OLDPAYTYPES[t]||['其他','in'];
-const LESSONPAY=['single','package'];   // 算待收款時視為「已收的課程費」
+const payType=t=>PAYTYPES[t]||['其他','in'];
 const ATTLABEL={present:'出席',leave:'請假',noshow:'未到'};
 /* 價目表：每人每堂費用 = 課程性質（一般課／體驗課）× 上課人數（1對1～1對4） */
 const PRICEKIND={normal:'一般課',trial:'體驗課'};
@@ -382,7 +379,7 @@ const paysOf=sid=>all('payments').filter(p=>p.studentId===sid).sort((a,b)=>(b.da
 function owed(s){ // 待收款＝已點名計費的課 − 已收的課程費
   if(!s)return 0;
   const due=lessonsOf(s.id).filter(l=>counted(l,s.id)).reduce((a,l)=>a+studentFee(l,s),0);
-  const paid=all('payments').filter(p=>p.studentId===s.id&&LESSONPAY.includes(p.type)).reduce((a,p)=>a+Number(p.amount||0),0);
+  const paid=all('payments').filter(p=>p.studentId===s.id&&p.type==='single').reduce((a,p)=>a+Number(p.amount||0),0);
   return Math.round(due-paid);
 }
 function lastAttended(sid){const l=lessonsOf(sid).filter(l=>(l.attendance||{})[sid]==='present').sort((a,b)=>b.date.localeCompare(a.date))[0];return l?.date||''}
@@ -757,7 +754,7 @@ function vStats(){
   const rate=marks.length?Math.round(marks.filter(v=>v==='present').length/marks.length*100):null;
   const year=t.slice(0,4),byMonth={};all('lessons').filter(l=>l.date.startsWith(year)&&l.status!=='cancelled').forEach(l=>{const k=l.date.slice(0,7);byMonth[k]=(byMonth[k]||0)+1});
   const busiest=Object.entries(byMonth).sort((a,b)=>b[1]-a[1])[0];
-  const lessonInc=all('payments').filter(p=>p.date?.startsWith(year)&&LESSONPAY.includes(p.type)).reduce((a,p)=>a+Number(p.amount||0),0);
+  const lessonInc=all('payments').filter(p=>p.date?.startsWith(year)&&p.type==='single').reduce((a,p)=>a+Number(p.amount||0),0);
   let heads=0;all('lessons').filter(l=>l.date.startsWith(year)).forEach(l=>(l.studentIds||[]).forEach(sid=>{if(counted(l,sid))heads++}));
   const perSession=heads?lessonInc/heads:0;
   const dueAll=activeStudents().reduce((a,s)=>a+Math.max(0,owed(s)),0);
@@ -819,8 +816,9 @@ function buildMsg(){
     const prev=logsOf(g.studentId).find(x=>x.id!==g.id&&((x.date||'')<(g.date||'')||(x.date===g.date&&(x.createdAt||0)<(g.createdAt||0))));
     const up=prev?SKILLS.filter(([k])=>Number(g.skills?.[k]||0)>Number(prev.skills?.[k]||0)).map(([k,n])=>`${n} ${prev.skills?.[k]||0}→${g.skills[k]}`):[];
     return `【今日學習回饋】\n${s?.name||''} 您好，今天辛苦了！\n📅 ${dlabel(g.date)}\n\n🏓 本堂重點：${g.focus||'—'}\n${up.length?`📈 進步項目：${up.join('、')}\n`:''}${g.note?`📝 教練觀察：${g.note}\n`:''}${g.homework?`🏠 回家練習：${g.homework}\n`:''}\n下次見！${sign}`.trim()}
-  if(t==='owe'){const s=byId('students',ref);if(!s)return '';const o=owed(s),n=doneCount(s.id),f=logsOf(s.id)[0]?.focus;
-    return `${s.name} 您好！\n跟您核對一下課程費用：目前已上課 ${n} 堂，尚有 ${money(Math.max(0,o))} 未結。\n${f?`這陣子在「${f}」進步很明顯，繼續保持！\n`:''}\n方便的話下次上課時帶來，或先轉帳都可以，有問題再跟我說，謝謝您！\n${sign}`.trim()}
+  if(t==='owe'){const s=byId('students',ref);if(!s)return '';const o=owed(s),nl=nextLesson(s.id),f=logsOf(s.id)[0]?.focus;
+    const when=nl?`${dlabel(nl.date)} ${nl.time}–${endTime(nl.time,nl.duration)}`:'';
+    return `${s.name} 您好！\n跟您核對一下課程費用：${when?`目前預約 ${when} 的課程，`:''}尚有 ${money(Math.max(0,o))} 未結。\n${f?`這陣子在「${f}」進步很明顯，繼續保持！\n`:''}\n方便的話上課時帶來，或先轉帳都可以，有問題再跟我說，謝謝您！\n${sign}`.trim()}
   if(t==='report'){const s=byId('students',ref);if(!s)return '';const ls=logsOf(s.id),g=ls[0],f=ls.length>1?ls[ls.length-1]:null;
     let txt=`【學習報告】${s.name}\n${s.goal?`目標：${s.goal}\n`:''}累計上課：${doneCount(s.id)} 堂｜學習紀錄：${ls.length} 筆\n`;
     if(g){txt+=`\n技術評估（${dlabel(g.date)}）\n`+SKILLS.map(([k,n])=>{const v=Number(g.skills?.[k]||0),b=f?Number(f.skills?.[k]||0):null;return `${n}　${stars(v)}${b!==null&&v>b?`  ↑${v-b}`:''}`}).join('\n');if(g.homework)txt+=`\n\n下一階段練習：${g.homework}`}
@@ -980,9 +978,8 @@ function paymentSheet(id,preset={}){
   const s=preset.sid?byId('students',preset.sid):null;
   const p=id?byId('payments',id):{type:preset.type||'single',studentId:preset.sid||'',date:today(),method:'轉帳',amount:s?Math.max(0,owed(s)):''};
   const due=preset.sid&&!id?owed(s):null;
-  const opts=Object.entries(PAYTYPES).concat(byId('payments',id)&&!PAYTYPES[p.type]?[[p.type,payType(p.type)]]:[]);
   openSheet(id?'編輯收支':(preset.sid?'收款':'記一筆'),`
-  <div class="f"><label for="p_t">類別</label><select id="p_t" name="type">${opts.map(([k,[n,d]])=>`<option value="${k}" ${p.type===k?'selected':''}>${d==='in'?'收入':'支出'}・${n}</option>`).join('')}</select></div>
+  <div class="f"><label for="p_t">類別</label><select id="p_t" name="type">${Object.entries(PAYTYPES).map(([k,[n,d]])=>`<option value="${k}" ${p.type===k?'selected':''}>${d==='in'?'收入':'支出'}・${n}</option>`).join('')}</select></div>
   <div class="f"><label for="p_s">學生</label><select id="p_s" name="studentId">${studentOptions(p.studentId,true)}</select></div>
   <div class="grid2"><div class="f"><label for="p_a">金額（元）</label><input id="p_a" type="number" min="0" step="1" inputmode="numeric" name="amount" required value="${esc(p.amount)}"></div>
   <div class="f"><label for="p_d">日期</label><input id="p_d" type="date" name="date" value="${esc(p.date)}"></div></div>

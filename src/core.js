@@ -8,7 +8,7 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.4.0'
+  VERSION: '1.4.1'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -17,10 +17,7 @@ const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 /* ================== 常數 ================== */
 const SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
 const PAYTYPES={single:['課程收費','in'],income:['其他收入','in'],venue:['場地費','out'],gear:['器材','out'],expense:['其他支出','out']};
-// 舊版「課程包」的資料仍要看得到、也要算進已收的課程費，但不再提供新增
-const OLDPAYTYPES={package:['課程收費（舊課程包）','in']};
-const payType=t=>PAYTYPES[t]||OLDPAYTYPES[t]||['其他','in'];
-const LESSONPAY=['single','package'];   // 算待收款時視為「已收的課程費」
+const payType=t=>PAYTYPES[t]||['其他','in'];
 const ATTLABEL={present:'出席',leave:'請假',noshow:'未到'};
 /* 價目表：每人每堂費用 = 課程性質（一般課／體驗課）× 上課人數（1對1～1對4） */
 const PRICEKIND={normal:'一般課',trial:'體驗課'};
@@ -127,7 +124,7 @@ const paysOf=sid=>all('payments').filter(p=>p.studentId===sid).sort((a,b)=>(b.da
 function owed(s){ // 待收款＝已點名計費的課 − 已收的課程費
   if(!s)return 0;
   const due=lessonsOf(s.id).filter(l=>counted(l,s.id)).reduce((a,l)=>a+studentFee(l,s),0);
-  const paid=all('payments').filter(p=>p.studentId===s.id&&LESSONPAY.includes(p.type)).reduce((a,p)=>a+Number(p.amount||0),0);
+  const paid=all('payments').filter(p=>p.studentId===s.id&&p.type==='single').reduce((a,p)=>a+Number(p.amount||0),0);
   return Math.round(due-paid);
 }
 function lastAttended(sid){const l=lessonsOf(sid).filter(l=>(l.attendance||{})[sid]==='present').sort((a,b)=>b.date.localeCompare(a.date))[0];return l?.date||''}
