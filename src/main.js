@@ -59,7 +59,7 @@ document.addEventListener('click',async e=>{
     case 'leadf':ui.leadf=ds.k;render();break;
     case 'new-lesson':lessonSheet(null,{d:ds.d,sid:ds.sid});break;
     case 'edit-lesson':lessonSheet(ds.id);break;
-    case 'dup-lesson':{const l=byId('lessons',ds.id);if(l){const n=addDays(l.date,7);put('lessons',uid(),{...l,date:n,attendance:{},status:'scheduled',createdAt:Date.now()});closeSheet();toast(`已複製到 ${dlabel(n)}`)}break}
+    case 'dup-lesson':{const f=document.getElementById('sf');if(f&&sheetSubmit)sheetSubmit(new FormData(f));dupSheet(ds.id);break}
     case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);break;
     case 'new-log':{const f=document.getElementById('sf');if(f&&ds.lid&&sheetSubmit)sheetSubmit(new FormData(f));closeSheet();logSheet(null,{sid:ds.sid,lid:ds.lid});break}
     case 'edit-log':logSheet(ds.id);break;

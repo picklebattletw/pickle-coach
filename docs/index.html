@@ -272,7 +272,7 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.5.0'
+  VERSION: '1.5.1'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -937,7 +937,7 @@ function lessonSheet(id,preset={}){
   ${id?`<div class="f"><label for="l_st">狀態</label><select id="l_st" name="status"><option value="scheduled" ${l.status==='scheduled'?'selected':''}>已排定</option><option value="done" ${l.status==='done'?'selected':''}>已完成</option><option value="cancelled" ${l.status==='cancelled'?'selected':''}>已取消</option></select></div>`:''}
   <div class="f"><label for="l_note">備註</label><textarea id="l_note" name="note">${esc(l.note)}</textarea></div>
   <div class="actions"><button class="btn pri grow">儲存</button>${delBtn('lessons',id)}</div>
-  ${id?`<div class="actions" style="margin-top:8px"><button type="button" class="btn line" data-act="remind-lesson" data-id="${id}">傳上課提醒</button><button type="button" class="btn" data-act="ics" data-id="${id}">加入手機行事曆</button><button type="button" class="btn" data-act="dup-lesson" data-id="${id}">複製到下週</button></div>`:''}`,
+  ${id?`<div class="actions" style="margin-top:8px"><button type="button" class="btn line" data-act="remind-lesson" data-id="${id}">傳上課提醒</button><button type="button" class="btn" data-act="ics" data-id="${id}">加入手機行事曆</button><button type="button" class="btn" data-act="dup-lesson" data-id="${id}">複製到其他日期</button></div>`:''}`,
   fd=>{
     const sids=fd.getAll('sids').map(String);
     const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title'),location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),feeTotal:Math.max(0,Math.round(Number(fv(fd,'feeTotal')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
@@ -964,6 +964,24 @@ function feeInfo(){
   box.textContent=`${PRICEKIND[kind]} ${headLabel(kind,bh)}：整堂 ${money(tot)}，平均每人 ${money(perHead(l))}。`
     +(own>0?'這堂是自訂總價，不受價目表影響。':bh!==n?`（${PRICEKIND[kind]}價目表最少 ${PRICEHEADS[kind][0]} 人起算）`:'')
     +(own>0?'':'價格可到「更多 › 設定 › 課程價目表」調整，或在上面直接填這堂的總價。');
+}
+
+// 把一堂課複製到自己挑的日期時間（學生、地點、收費設定一起帶過去）
+function dupSheet(id){
+  const l=byId('lessons',id);if(!l)return;
+  openSheet('複製課程',`
+  <p class="hint" style="margin:0">把「${esc(l.title||'匹克球課')}」的學生、地點、時長和收費設定複製一份到新的日期。點名和筆記不會跟著複製。</p>
+  <div class="grid2"><div class="f"><label for="cp_d">新的日期</label><input id="cp_d" type="date" name="date" required value="${esc(addDays(l.date,7))}"></div>
+  <div class="f"><label for="cp_t">開始時間</label><input id="cp_t" type="time" name="time" required value="${esc(l.time)}"></div></div>
+  <div class="actions"><button class="btn pri grow">複製</button></div>`,
+  fd=>{
+    const date=fv(fd,'date'),time=fv(fd,'time')||l.time;
+    if(!date)return toast('請選擇日期');
+    const clash=all('lessons').find(x=>x.date===date&&x.status!=='cancelled'&&toMin(x.time)<toMin(time)+Number(l.duration||60)&&toMin(time)<toMin(x.time)+Number(x.duration||60));
+    put('lessons',uid(),{...l,date,time,attendance:{},status:'scheduled',createdAt:Date.now()});
+    ui.day=date;ui.week=weekStart(date);closeSheet();
+    toast(`已複製到 ${dlabel(date)} ${time}`+(clash?`。注意：和 ${clash.time} 的課時間重疊`:''));
+  });
 }
 
 function logSheet(id,preset={}){
@@ -1155,7 +1173,7 @@ document.addEventListener('click',async e=>{
     case 'leadf':ui.leadf=ds.k;render();break;
     case 'new-lesson':lessonSheet(null,{d:ds.d,sid:ds.sid});break;
     case 'edit-lesson':lessonSheet(ds.id);break;
-    case 'dup-lesson':{const l=byId('lessons',ds.id);if(l){const n=addDays(l.date,7);put('lessons',uid(),{...l,date:n,attendance:{},status:'scheduled',createdAt:Date.now()});closeSheet();toast(`已複製到 ${dlabel(n)}`)}break}
+    case 'dup-lesson':{const f=document.getElementById('sf');if(f&&sheetSubmit)sheetSubmit(new FormData(f));dupSheet(ds.id);break}
     case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);break;
     case 'new-log':{const f=document.getElementById('sf');if(f&&ds.lid&&sheetSubmit)sheetSubmit(new FormData(f));closeSheet();logSheet(null,{sid:ds.sid,lid:ds.lid});break}
     case 'edit-log':logSheet(ds.id);break;
