@@ -271,7 +271,7 @@ function vSettings(){
   <div class="f"><span class="lb">課程價目表（每人每堂的價格）</span>
   <p class="hint" style="margin:0">依上課人數訂價，體驗課可以另外設定。留空的格子會沿用人數較少的價格。</p>
   ${Object.entries(PRICEKIND).map(([k,n])=>`<div class="pricerow"><span class="lb">${n}</span><div class="grid4">${HEADS.map(h=>`<div class="f"><label for="pr_${k}_${h}">${HEADLABEL[h]}</label><input id="pr_${k}_${h}" type="number" min="0" step="10" inputmode="numeric" name="price_${k}_${h}" value="${esc(s.prices[k][h]||'')}" placeholder="${unitPriceFor(k,h)}"></div>`).join('')}</div></div>`).join('')}
-  <p class="hint" style="margin:0">單堂制學生的待收款會依這張表計算（60 分鐘以外的課，若扣堂方式選「依時數」也會按比例換算）。學生資料若填了「個人專屬單價」，則以專屬單價為準。</p></div>
+  <p class="hint" style="margin:0">單堂制學生的待收款會依這張表計算（60 分鐘以外的課，若扣堂方式選「依時數」也會按比例換算）。學生資料若填了「個人專屬單價」，則以專屬單價為準；排課時也可以單獨指定「本堂每人價格」（例如場租較高的球場），那一堂就以課程上填的為準。</p></div>
   <div class="grid3"><div class="f"><label for="st_low">剩幾堂提醒續約</label><input id="st_low" type="number" min="0" name="lowAt" value="${esc(s.lowAt)}"></div>
   <div class="f"><label for="st_idle">幾天沒上課算流失</label><input id="st_idle" type="number" min="1" name="inactiveDays" value="${esc(s.inactiveDays)}"></div>
   <div class="f"><label for="st_exp">到期前幾天提醒</label><input id="st_exp" type="number" min="0" name="expiryWarnDays" value="${esc(s.expiryWarnDays)}"></div></div>

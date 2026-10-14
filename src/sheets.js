@@ -26,7 +26,7 @@ function studentSheet(id,preset={}){
   <div class="f"><span class="lb">代表色</span><div class="swatches">${COLORS.map(c=>`<label><input type="radio" name="color" value="${c}" ${s.color===c?'checked':''} aria-label="顏色 ${c}"><span style="background:${c}"></span></label>`).join('')}</div></div>
   <div class="grid2"><div class="f"><label for="s_bill">收費方式</label><select id="s_bill" name="billing"><option value="package" ${s.billing!=='perLesson'?'selected':''}>預購課程包</option><option value="perLesson" ${s.billing==='perLesson'?'selected':''}>單堂制（上一堂收一堂）</option></select></div>
   <div class="f"><label for="s_price">個人專屬單價（選填）</label><input id="s_price" type="number" min="0" name="price" value="${esc(s.price||'')}" placeholder="留空＝依人數價目表"></div></div>
-  <p class="hint">單堂制學生的待收款，預設依「設定 › 課程價目表」用上課人數計算；填了專屬單價就一律用這個價格。</p>
+  <p class="hint">單堂制學生的待收款，預設依「設定 › 課程價目表」用上課人數計算；填了專屬單價就一律用這個價格。排課時若單獨填了「本堂每人價格」，那一堂以課程上填的為準。</p>
   ${!id?`<div class="card" style="margin-top:12px"><span class="lab">同時登記購買課程包（選填）</span><div class="grid3"><div class="f"><label for="s_pn">堂數</label><input id="s_pn" type="number" min="0" name="pkgSessions" placeholder="10"></div><div class="f"><label for="s_pa">金額</label><input id="s_pa" type="number" min="0" name="pkgAmount"></div><div class="f"><label for="s_pe">到期日</label><input id="s_pe" type="date" name="pkgExpiry"></div></div></div>`:''}
   <div class="grid2"><div class="f"><label for="s_start">開始上課日</label><input id="s_start" type="date" name="startDate" value="${esc(s.startDate)}"></div>
   <div class="f"><label for="s_st">狀態</label><select id="s_st" name="status"><option value="active" ${(s.status||'active')==='active'?'selected':''}>上課中</option><option value="paused" ${s.status==='paused'?'selected':''}>暫停</option><option value="archived" ${s.status==='archived'?'selected':''}>封存（不再上課）</option></select></div></div>
@@ -46,7 +46,7 @@ function studentSheet(id,preset={}){
 
 function lessonSheet(id,preset={}){
   const st=SET();
-  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,type:'private',capacity:4,feeKind:'normal',payHeads:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'一對一私人課',location:st.defaultLocation||''};
+  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,type:'private',capacity:4,feeKind:'normal',payHeads:0,unitPrice:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'一對一私人課',location:st.defaultLocation||''};
   const att=l.attendance||{};
   const locs=[...new Set([st.defaultLocation,...all('lessons').map(x=>x.location)].filter(Boolean))];
   const studs=all('students').filter(s=>(s.status||'active')==='active'||(l.studentIds||[]).includes(s.id)).sort(byName);
@@ -59,8 +59,9 @@ function lessonSheet(id,preset={}){
   <div class="f"><label for="l_cap">團體名額</label><input id="l_cap" type="number" min="1" max="40" name="capacity" value="${esc(l.capacity||4)}"></div></div>
   <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
   <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}</div>
-  <div class="grid2"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
-  <div class="f"><label for="l_heads">收費人數</label><input id="l_heads" type="number" min="0" max="20" step="1" inputmode="numeric" name="payHeads" value="${esc(l.payHeads||'')}" placeholder="依學生人數"></div></div>
+  <div class="grid3"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
+  <div class="f"><label for="l_heads">收費人數</label><input id="l_heads" type="number" min="0" max="20" step="1" inputmode="numeric" name="payHeads" value="${esc(l.payHeads||'')}" placeholder="依人數"></div>
+  <div class="f"><label for="l_price">本堂每人價格</label><input id="l_price" type="number" min="0" step="10" inputmode="numeric" name="unitPrice" value="${esc(l.unitPrice||'')}" placeholder="依價目表"></div></div>
   <p class="hint" id="l_feeinfo"></p>
   <label class="check"><input type="checkbox" name="deduct" ${l.deduct!==false?'checked':''}> 出席或未到時扣堂（課程包）／計費（單堂制）</label>
   ${!id?`<div class="f"><label for="l_rep">每週重複</label><select id="l_rep" name="repeat">${[1,2,4,6,8,10,12].map(n=>`<option value="${n}">${n===1?'不重複':`共 ${n} 週`}</option>`).join('')}</select></div>`:''}
@@ -71,7 +72,7 @@ function lessonSheet(id,preset={}){
   ${id?`<div class="actions" style="margin-top:8px"><button type="button" class="btn line" data-act="remind-lesson" data-id="${id}">傳上課提醒</button><button type="button" class="btn" data-act="ics" data-id="${id}">加入手機行事曆</button>${(l.studentIds||[]).length===1?`<button type="button" class="btn" data-act="new-log" data-sid="${l.studentIds[0]}" data-lid="${id}">寫學習紀錄</button>`:''}<button type="button" class="btn" data-act="dup-lesson" data-id="${id}">複製到下週</button></div>`:''}`,
   fd=>{
     const sids=fd.getAll('sids').map(String);
-    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title')||'匹克球課',type:fv(fd,'type'),capacity:Number(fv(fd,'capacity')||4),location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
+    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title')||'匹克球課',type:fv(fd,'type'),capacity:Number(fv(fd,'capacity')||4),location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),unitPrice:Math.max(0,Math.round(Number(fv(fd,'unitPrice')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
     if(!o.date||!o.time)return toast('請填寫日期和時間');
     if(o.type==='group'&&sids.length>o.capacity)return toast(`已選 ${sids.length} 位，超過名額 ${o.capacity}`);
     const clash=all('lessons').find(x=>x.id!==id&&x.date===o.date&&x.status!=='cancelled'&&toMin(x.time)<toMin(o.time)+o.duration&&toMin(o.time)<toMin(x.time)+Number(x.duration||60));
@@ -90,9 +91,10 @@ function feeInfo(){
   const kind=document.getElementById('l_fee')?.value==='trial'?'trial':'normal';
   const manual=Math.round(Number(document.getElementById('l_heads')?.value||0));
   const n=manual>0?manual:Math.max(1,f.querySelectorAll('input[name="sids"]:checked').length);
-  const l={feeKind:kind,payHeads:n,duration:Number(document.getElementById('l_dur')?.value||60)};
+  const own=Math.max(0,Math.round(Number(document.getElementById('l_price')?.value||0)));
+  const l={feeKind:kind,payHeads:n,unitPrice:own,duration:Number(document.getElementById('l_dur')?.value||60)};
   const per=Math.round(lessonUnitPrice(l)*unitsOf(l));
-  box.textContent=`${PRICEKIND[kind]}${n>4?`${n} 人`:HEADLABEL[n]}：每人 ${money(per)}，整堂共 ${money(per*n)}。價格可到「更多 › 設定 › 課程價目表」調整。`;
+  box.textContent=`${PRICEKIND[kind]}${n>4?`${n} 人`:HEADLABEL[n]}：每人 ${money(per)}，整堂共 ${money(per*n)}。${own>0?'這堂是自訂價格，不受價目表影響。':'價格可到「更多 › 設定 › 課程價目表」調整，或在上面直接填這堂的價格。'}`;
 }
 
 function logSheet(id,preset={}){

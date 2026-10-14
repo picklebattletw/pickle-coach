@@ -91,6 +91,7 @@ document.addEventListener('input',e=>{
   if(t.dataset.out){const o=document.getElementById(t.dataset.out);if(o)o.textContent=t.value}
   if(t.dataset.input==='q'){ui.q=t.value;if(!e.isComposing)render()}
   if(t.id==='msgText'){msgDirty=true;syncLineLink()}
+  if(['l_heads','l_price'].includes(t.id))feeInfo();
 });
 document.addEventListener('compositionend',e=>{if(e.target.dataset?.input==='q'){ui.q=e.target.value;render()}});
 document.addEventListener('change',e=>{
@@ -100,7 +101,7 @@ document.addEventListener('change',e=>{
     SKILLS.forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
   if(t.id==='l_type'){const ti=document.getElementById('l_title');if(t.value==='group'&&ti.value==='一對一私人課')ti.value='初學團體班'}
   if(t.id==='p_t')togglePkg();
-  if(['l_fee','l_heads','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
+  if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
   if(t.id==='importFile'&&t.files[0]){importBackup(t.files[0]);t.value=''}
 });
 document.addEventListener('submit',e=>{

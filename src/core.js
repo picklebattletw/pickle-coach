@@ -6,7 +6,7 @@ const CONFIG = {
   DRIVE_FOLDER: '匹克球教練本',
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.1.0'
+  VERSION: '1.1.1'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -97,8 +97,10 @@ function unitPriceFor(kind,heads){
   const pick=kk=>{for(let i=h;i>=1;i--){const v=Number(P[kk]?.[i]||0);if(v>0)return v}return 0};
   return pick(k)||pick('normal')||Number(st.singlePrice||0);
 }
-const lessonUnitPrice=l=>unitPriceFor(feeKindOf(l),headsOf(l));           // 這堂每人的價格
-const studentFee=(l,s)=>Math.round((Number(s?.price)>0?Number(s.price):lessonUnitPrice(l))*unitsOf(l)); // 這位學生這堂應收
+// 這堂每人的價格：課程自己填的價格最優先（不同場地／特殊情況），否則查價目表
+const lessonUnitPrice=l=>Number(l?.unitPrice)>0?Number(l.unitPrice):unitPriceFor(feeKindOf(l),headsOf(l));
+// 這位學生這堂應收：課程自訂價 > 學生專屬單價 > 價目表
+const studentFee=(l,s)=>Math.round((Number(l?.unitPrice)>0?Number(l.unitPrice):Number(s?.price)>0?Number(s.price):lessonUnitPrice(l))*unitsOf(l));
 const lessonFee=l=>Math.round(lessonUnitPrice(l)*unitsOf(l))*headsOf(l);  // 整堂定價
 const counted=(l,sid)=>l.status!=='cancelled'&&l.deduct!==false&&['present','noshow'].includes((l.attendance||{})[sid]);
 const lessonsOf=sid=>all('lessons').filter(l=>(l.studentIds||[]).includes(sid));
