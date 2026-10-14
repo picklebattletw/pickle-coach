@@ -8,7 +8,7 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.3.1'
+  VERSION: '1.4.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -16,8 +16,11 @@ const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 
 /* ================== 常數 ================== */
 const SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
-const PAYTYPES={package:['課程包','in'],single:['單堂收費','in'],income:['其他收入','in'],venue:['場地費','out'],gear:['器材','out'],expense:['其他支出','out']};
-const PKGKIND={first:'首購',renew:'續約',addon:'加購'};
+const PAYTYPES={single:['課程收費','in'],income:['其他收入','in'],venue:['場地費','out'],gear:['器材','out'],expense:['其他支出','out']};
+// 舊版「課程包」的資料仍要看得到、也要算進已收的課程費，但不再提供新增
+const OLDPAYTYPES={package:['課程收費（舊課程包）','in']};
+const payType=t=>PAYTYPES[t]||OLDPAYTYPES[t]||['其他','in'];
+const LESSONPAY=['single','package'];   // 算待收款時視為「已收的課程費」
 const ATTLABEL={present:'出席',leave:'請假',noshow:'未到'};
 /* 價目表：每人每堂費用 = 課程性質（一般課／體驗課）× 上課人數（1對1～1對4） */
 const PRICEKIND={normal:'一般課',trial:'體驗課'};
@@ -30,7 +33,7 @@ const SOURCES=['朋友介紹','Instagram','Facebook','LINE 社群','體驗課','
 const LEADST={inquiry:['詢問中','mute'],trial:['已約體驗','ball'],won:['已成交','good'],lost:['未成交','bad']};
 const COLORS=['#1E5D78','#2E7D55','#B86E12','#B23A3A','#6B4FA0','#0F8A8A','#A0527A','#5A6B70'];
 const COLS=['students','lessons','payments','logs','leads'];
-const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,deductMode:'lesson',lowAt:2,inactiveDays:21,expiryWarnDays:14,singlePrice:1000,prices:null,updatedAt:0};
+const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,updatedAt:0};
 
 /* ================== 小工具 ================== */
 const pad=n=>String(n).padStart(2,'0');
@@ -91,7 +94,6 @@ function merge(a,b){
 }
 
 /* ================== 計算 ================== */
-const unitsOf=l=>SET().deductMode==='hours'?Number(l.duration||60)/60:1;
 /* ---- 課程收費 ---- */
 const feeKindOf=l=>l&&l.feeKind==='trial'?'trial':'normal';
 // 收費人數：有自己填就用填的（體驗課常有還沒建檔的人），否則用這堂的學生人數
@@ -109,30 +111,25 @@ function totalPriceFor(kind,heads){
 // 這堂每人的價格：課程自己填的價格最優先（不同場地／特殊情況），否則查價目表
 // 這堂自己填的總價（0＝沒填）；unitPrice 是舊版的「每人價格」，換算回總價
 const ownTotal=l=>Number(l?.feeTotal)>0?Number(l.feeTotal):Number(l?.unitPrice)>0?Number(l.unitPrice)*headsOf(l):0;
-const lessonFee=l=>Math.round((ownTotal(l)||totalPriceFor(feeKindOf(l),billHeads(l)))*unitsOf(l)); // 整堂總價
-// 這位學生這堂應收：課程自訂總價 > 學生專屬單價 > 價目表總價 ÷ 人數
+const lessonFee=l=>Math.round(ownTotal(l)||totalPriceFor(feeKindOf(l),billHeads(l))); // 整堂總價
+// 這位學生這堂應收：課程自訂總價 > 學生個人單價 > 價目表總價 ÷ 人數
 function studentFee(l,s){
   const own=ownTotal(l);
-  if(own>0)return Math.round(own*unitsOf(l)/Math.max(1,headsOf(l)));
-  if(Number(s?.price)>0)return Math.round(Number(s.price)*unitsOf(l));
-  return Math.round(totalPriceFor(feeKindOf(l),billHeads(l))*unitsOf(l)/Math.max(1,headsOf(l)));
+  if(own>0)return Math.round(own/Math.max(1,headsOf(l)));
+  if(Number(s?.price)>0)return Math.round(Number(s.price));
+  return Math.round(totalPriceFor(feeKindOf(l),billHeads(l))/Math.max(1,headsOf(l)));
 }
 const perHead=l=>Math.round(lessonFee(l)/Math.max(1,headsOf(l)));          // 平均每人
 const counted=(l,sid)=>l.status!=='cancelled'&&l.deduct!==false&&['present','noshow'].includes((l.attendance||{})[sid]);
 const lessonsOf=sid=>all('lessons').filter(l=>(l.studentIds||[]).includes(sid));
-const packagesOf=sid=>all('payments').filter(p=>p.studentId===sid&&p.type==='package').sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-function usedUnits(sid){return lessonsOf(sid).filter(l=>counted(l,sid)).reduce((a,l)=>a+unitsOf(l),0)}
-function boughtUnits(sid){return packagesOf(sid).reduce((a,p)=>a+Number(p.sessions||0),0)}
-function remaining(sid){return Math.round((boughtUnits(sid)-usedUnits(sid))*10)/10}
-const isPerLesson=s=>s&&s.billing==='perLesson';
-const hasPkg=sid=>packagesOf(sid).length>0;
-function owed(s){ // 單堂制：已上課應收 - 已收（依價目表，學生有專屬單價則以專屬單價為準）
-  if(!isPerLesson(s))return 0;
+const doneCount=sid=>lessonsOf(sid).filter(l=>(l.attendance||{})[sid]==='present').length; // 已上課堂數
+const paysOf=sid=>all('payments').filter(p=>p.studentId===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+function owed(s){ // 待收款＝已點名計費的課 − 已收的課程費
+  if(!s)return 0;
   const due=lessonsOf(s.id).filter(l=>counted(l,s.id)).reduce((a,l)=>a+studentFee(l,s),0);
-  const paid=all('payments').filter(p=>p.studentId===s.id&&p.type==='single').reduce((a,p)=>a+Number(p.amount||0),0);
-  return due-paid;
+  const paid=all('payments').filter(p=>p.studentId===s.id&&LESSONPAY.includes(p.type)).reduce((a,p)=>a+Number(p.amount||0),0);
+  return Math.round(due-paid);
 }
-function expiryOf(sid){const ps=packagesOf(sid).filter(p=>p.expiry);return ps.length?ps[ps.length-1].expiry:''}
 function lastAttended(sid){const l=lessonsOf(sid).filter(l=>(l.attendance||{})[sid]==='present').sort((a,b)=>b.date.localeCompare(a.date))[0];return l?.date||''}
 function nextLesson(sid){return lessonsOf(sid).filter(l=>l.date>=today()&&l.status==='scheduled').sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))[0]}
 const lessonsOn=d=>all('lessons').filter(l=>l.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
@@ -140,7 +137,7 @@ const logsOf=sid=>all('logs').filter(l=>l.studentId===sid).sort((a,b)=>(b.date||
 const sname=id=>byId('students',id)?.name||'（已刪除）';
 const names=l=>(l.studentIds||[]).map(sname).join('、')||'尚未指定學生';
 const activeStudents=()=>all('students').filter(s=>(s.status||'active')==='active');
-function monthSum(m){let inc=0,exp=0;all('payments').filter(p=>(p.date||'').startsWith(m)).forEach(p=>{PAYTYPES[p.type]?.[1]==='out'?exp+=Number(p.amount||0):inc+=Number(p.amount||0)});return{inc,exp}}
+function monthSum(m){let inc=0,exp=0;all('payments').filter(p=>(p.date||'').startsWith(m)).forEach(p=>{payType(p.type)[1]==='out'?exp+=Number(p.amount||0):inc+=Number(p.amount||0)});return{inc,exp}}
 function sColor(s){return s?.color||COLORS[0]}
 const initial=n=>esc(String(n||'?').replace(/^範例・/,'').slice(0,1));
 

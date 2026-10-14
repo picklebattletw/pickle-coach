@@ -44,20 +44,17 @@ function stuRow(s,right,sub){
   return `<button class="row" data-act="open-student" data-id="${s.id}"><div class="av" style="background:${sColor(s)}22;color:${sColor(s)}">${initial(s.name)}</div><div class="main"><b>${esc(s.name)}</b><small>${sub}</small></div>${right||''}</button>`;
 }
 function remainRight(s){
-  if(isPerLesson(s)){const o=owed(s);return o>0?`<div class="right neg"><b>${money(o)}</b><small>待收款</small></div>`:'<span class="tag mute">單堂制</span>'}
-  if(!hasPkg(s.id))return '<span class="tag mute">未購課</span>';
-  const r=remaining(s.id),lo=SET().lowAt;
-  return `<div class="right ${r<0?'neg':r<=lo?'low':''}"><b>${fmtNum(r)}</b><small>剩餘堂數</small></div>`;
+  const o=owed(s),n=doneCount(s.id);
+  if(o>0)return `<div class="right neg"><b>${money(o)}</b><small>待收款</small></div>`;
+  if(o<0)return `<div class="right"><b>${money(-o)}</b><small>已預繳</small></div>`;
+  return `<div class="right"><b>${n}</b><small>已上課</small></div>`;
 }
 
 /* ---------- 今日 ---------- */
 function alertsList(){
   const t=today(),st=SET(),out=[];
   activeStudents().forEach(s=>{
-    if(isPerLesson(s)){const o=owed(s);if(o>0)out.push({s,kind:'owe',txt:`單堂制待收 ${money(o)}`,tag:'bad',rank:0});return}
-    if(hasPkg(s.id)){const r=remaining(s.id);
-      if(r<=st.lowAt)out.push({s,kind:'renew',txt:r<0?`已超上 ${fmtNum(-r)} 堂，尚未續約`:r===0?'課程包已用完':`只剩 ${fmtNum(r)} 堂`,tag:r<=0?'bad':'warn',rank:r<=0?0:1});
-      const ex=expiryOf(s.id);if(ex&&r>0){const d=diffDays(t,ex);if(d<0)out.push({s,kind:'expire',txt:`課程包已於 ${dlabel(ex)} 到期，還有 ${fmtNum(r)} 堂`,tag:'bad',rank:0});else if(d<=st.expiryWarnDays)out.push({s,kind:'expire',txt:`課程包 ${d} 天後到期（${dlabel(ex)}），還有 ${fmtNum(r)} 堂`,tag:'warn',rank:1})}}
+    const o=owed(s);if(o>0)out.push({s,kind:'owe',txt:`尚未收款 ${money(o)}`,tag:'bad',rank:0});
     const la=lastAttended(s.id);
     if(la&&!nextLesson(s.id)){const d=diffDays(la,t);if(d>=st.inactiveDays)out.push({s,kind:'idle',txt:`${d} 天沒上課，也沒有排下一堂`,tag:'mute',rank:2})}
   });
@@ -75,7 +72,7 @@ function vToday(){
     return `<p class="eyebrow">${dlabel(t)}</p><h1>歡迎使用${esc(CONFIG.APP_NAME)}</h1><p class="sub">學生、課表、收費和學習紀錄都放在這裡，資料存在你自己的 Google 雲端硬碟。</p>
     <h2>先做這三件事</h2><div class="list">
     <button class="row" data-act="settings"><div class="av">1</div><div class="main"><b>填寫教練資料</b><small>你的稱呼、品牌名稱，會出現在 LINE 訊息裡</small></div></button>
-    <button class="row" data-act="new-student"><div class="av">2</div><div class="main"><b>新增學生</b><small>可以一起登記購買的課程包</small></div></button>
+    <button class="row" data-act="new-student"><div class="av">2</div><div class="main"><b>新增學生</b><small>填姓名就好，其他可以之後再補</small></div></button>
     <button class="row" data-act="new-lesson"><div class="av">3</div><div class="main"><b>排第一堂課</b><small>可設定每週重複</small></div></button></div>
     <p class="hint">建議把這個網頁「加入主畫面」，用起來就像 App。</p>`;
   }
@@ -83,9 +80,9 @@ function vToday(){
   <div class="stats"><div class="stat"><span>本月收入</span><b>${money(inc)}</b></div><div class="stat"><span>本月支出</span><b>${money(exp)}</b></div><div class="stat"><span>本月淨額</span><b>${money(inc-exp)}</b></div></div>
   <h2>今日課表 <button class="btn sm more" data-act="goto" data-tab="cal">看整週</button></h2>
   <div class="list">${ls.length?ls.map(lessonCard).join(''):empty('今天沒有排課','排一堂課','new-lesson')}</div>
-  ${pending.length?`<h2>還沒點名的課 <span class="tag warn">${pending.length}</span></h2><div class="list">${pending.map(lessonCard).join('')}</div><p class="hint">點進去標記出席，才會扣堂數、計算收費。</p>`:''}
+  ${pending.length?`<h2>還沒點名的課 <span class="tag warn">${pending.length}</span></h2><div class="list">${pending.map(lessonCard).join('')}</div><p class="hint">點進去標記出席，才會算進收費。</p>`:''}
   <h2>需要處理 ${al.length?`<span class="tag warn">${groupAlerts(al).length}</span>`:''}</h2>
-  <div class="list">${al.length?groupAlerts(al).slice(0,12).map(g=>stuRow(g.s,`<div class="chips" style="justify-content:flex-end;max-width:110px">${g.items.map(a=>`<span class="tag ${a.tag}">${{owe:'待收款',renew:'續約',expire:'到期',idle:'流失風險'}[a.kind]}</span>`).join('')}</div>`,g.items.map(a=>esc(a.txt)).join('<br>'))).join(''):'<div class="empty">目前沒有需要續約、到期或待收款的學生</div>'}</div>`;
+  <div class="list">${al.length?groupAlerts(al).slice(0,12).map(g=>stuRow(g.s,`<div class="chips" style="justify-content:flex-end;max-width:110px">${g.items.map(a=>`<span class="tag ${a.tag}">${{owe:'待收款',idle:'流失風險'}[a.kind]}</span>`).join('')}</div>`,g.items.map(a=>esc(a.txt)).join('<br>'))).join(''):'<div class="empty">目前沒有待收款、也沒有太久沒上課的學生</div>'}</div>`;
 }
 
 /* ---------- 行事曆 ---------- */
@@ -132,35 +129,32 @@ function radarSVG(cur,base){
   return `<svg class="radar" viewBox="0 0 320 256" role="img" aria-label="技術雷達圖">${g}</svg>`;
 }
 function vStudent(s){
-  const r=remaining(s.id),used=usedUnits(s.id);
-  const paid=all('payments').filter(p=>p.studentId===s.id&&PAYTYPES[p.type]?.[1]==='in').reduce((a,p)=>a+Number(p.amount||0),0);
+  const used=doneCount(s.id);
+  const paid=all('payments').filter(p=>p.studentId===s.id&&payType(p.type)[1]==='in').reduce((a,p)=>a+Number(p.amount||0),0);
   const logs=logsOf(s.id),latest=logs[0],first=logs.length>1?logs[logs.length-1]:null;
   const loggedLessons=new Set(logs.map(l=>l.lessonId).filter(Boolean));
   const past=lessonsOf(s.id).filter(l=>l.status!=='cancelled'&&l.date<=today()&&!loggedLessons.has(l.id));
   const items=[...logs.map(l=>({k:'log',d:l.date,o:l})),...past.map(l=>({k:'att',d:l.date,o:l}))].sort((a,b)=>(b.d||'').localeCompare(a.d||'')||(b.o.time||'').localeCompare(a.o.time||''));
   const marked=lessonsOf(s.id).filter(l=>l.status!=='cancelled'&&(l.attendance||{})[s.id]);
   const rate=marked.length?Math.round(marked.filter(l=>l.attendance[s.id]==='present').length/marked.length*100):null;
-  const pkgs=packagesOf(s.id).slice().reverse();
-  const others=all('payments').filter(p=>p.studentId===s.id&&p.type!=='package').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const nl=nextLesson(s.id),ex=expiryOf(s.id),o=owed(s);
+  const pays=paysOf(s.id);
+  const nl=nextLesson(s.id),o=owed(s);
   const st={active:'',paused:'<span class="tag warn">暫停中</span>',archived:'<span class="tag mute">已封存</span>'}[s.status||'active'];
-  const firstStat=isPerLesson(s)?`<div class="stat"><span>待收款</span><b style="color:${o>0?'var(--bad)':'inherit'}">${money(o)}</b><small>${Number(s.price)>0?'專屬單價 '+money(s.price):'依人數價目表'}</small></div>`
-    :`<div class="stat"><span>剩餘堂數</span><b style="color:${r<0?'var(--bad)':r<=SET().lowAt?'var(--warn)':'inherit'}">${hasPkg(s.id)?fmtNum(r):'—'}</b><small>${ex?'到期 '+dlabel(ex):'&nbsp;'}</small></div>`;
+  const firstStat=`<div class="stat"><span>${o<0?'已預繳':'待收款'}</span><b style="color:${o>0?'var(--bad)':'inherit'}">${money(Math.abs(o))}</b><small>${Number(s.price)>0?'個人單價 '+money(s.price):'依人數價目表'}</small></div>`;
   return `<button class="back" data-act="back">‹ 學生列表</button>
   <div class="profile"><div class="av" style="background:${sColor(s)}22;color:${sColor(s)}">${initial(s.name)}</div><div style="min-width:0"><h1>${esc(s.name)} ${st}</h1>
   <div class="kv">${s.level?`<span>程度 ${esc(s.level)}</span>`:''}${s.phone?`<span>${esc(s.phone)}</span>`:''}${s.lineId?`<span>LINE ${esc(s.lineId)}</span>`:''}${s.source?`<span>來源 ${esc(s.source)}</span>`:''}${s.startDate?`<span>${esc(s.startDate)} 起</span>`:''}</div>
   ${(s.tags||[]).length?`<div class="chips" style="margin-top:6px">${s.tags.map(t=>`<span class="tag">#${esc(t)}</span>`).join('')}</div>`:''}</div></div>
   ${s.goal?`<p class="sub" style="margin-top:10px"><span class="lab">目標</span>　${esc(s.goal)}</p>`:''}
-  <div class="stats four">${firstStat}<div class="stat"><span>已上課</span><b>${fmtNum(used)} 堂</b><small>${rate===null?'&nbsp;':'出席率 '+rate+'%'}</small></div><div class="stat"><span>累計繳費</span><b>${money(paid)}</b><small>${pkgs.length?`購課 ${pkgs.length} 次`:'&nbsp;'}</small></div><div class="stat"><span>下一堂</span><b style="font-size:18px">${nl?dlabel(nl.date):'未排'}</b><small>${nl?esc(nl.time):'&nbsp;'}</small></div></div>
-  <div class="btns" style="margin-top:14px"><button class="btn pri" data-act="new-log" data-sid="${s.id}">寫上課筆記</button><button class="btn" data-act="new-payment" data-sid="${s.id}" data-type="${isPerLesson(s)?'single':'package'}">${isPerLesson(s)?'收款':'續約／購課'}</button><button class="btn" data-act="new-lesson" data-sid="${s.id}">排課</button><button class="btn line" data-act="share-report" data-sid="${s.id}">傳學習報告</button><button class="btn" data-act="edit-student" data-id="${s.id}">編輯資料</button></div>
+  <div class="stats four">${firstStat}<div class="stat"><span>已上課</span><b>${used} 堂</b><small>${rate===null?'&nbsp;':'出席率 '+rate+'%'}</small></div><div class="stat"><span>累計繳費</span><b>${money(paid)}</b><small>${pays.length?`${pays.length} 筆`:'&nbsp;'}</small></div><div class="stat"><span>下一堂</span><b style="font-size:18px">${nl?dlabel(nl.date):'未排'}</b><small>${nl?esc(nl.time):'&nbsp;'}</small></div></div>
+  <div class="btns" style="margin-top:14px"><button class="btn pri" data-act="new-log" data-sid="${s.id}">寫上課筆記</button><button class="btn" data-act="new-payment" data-sid="${s.id}" data-type="single">收款</button><button class="btn" data-act="new-lesson" data-sid="${s.id}">排課</button><button class="btn line" data-act="share-report" data-sid="${s.id}">傳學習報告</button><button class="btn" data-act="edit-student" data-id="${s.id}">編輯資料</button></div>
   <h2>技術能力</h2>
   ${latest?`<div class="card radarwrap"><div>${radarSVG(latest.skills||{},first?.skills)}<div class="legend"><span><i style="background:var(--court)"></i>最新 ${dlabel(latest.date)}</span>${first?`<span><i style="background:var(--muted)"></i>第一次 ${dlabel(first.date)}</span>`:''}</div></div>
   <div class="bars">${SKILLS.map(([k,n])=>{const v=Number(latest.skills?.[k]||0),b=first?Number(first.skills?.[k]||0):null,d=b!==null?v-b:0;return `<div class="bar"><span>${n}${d>0?` <span class="tag good">+${d}</span>`:''}</span><div class="track"><div class="fill" style="width:${v*20}%"></div></div><span class="v">${v}</span></div>`}).join('')}</div></div>`:empty('還沒有學習紀錄，寫下第一次評估後就會出現雷達圖','寫學習紀錄','new-log',`data-sid="${s.id}"`)}
   <h2>上課歷程與筆記 <span class="tag mute">${items.length}</span></h2>
   ${items.length?`<div class="timeline">${items.map(it=>it.k==='log'?logCard(s,it.o):lessonNoteCard(s,it.o)).join('')}</div>`:empty('每上完一堂課寫一段筆記，這裡就會留下完整的上課歷程','寫上課筆記','new-log',`data-sid="${s.id}"`)}
   ${s.notes?`<h2>備註</h2><div class="card" style="white-space:pre-wrap">${esc(s.notes)}</div>`:''}
-  ${pkgs.length?`<h2>續約紀錄 <span class="tag mute">${pkgs.length}</span></h2><div class="list">${pkgs.map(txRow).join('')}</div>`:''}
-  <h2>其他收費</h2><div class="list">${others.length?others.map(txRow).join(''):'<div class="empty">沒有其他收費紀錄</div>'}</div>`;
+  <h2>收費紀錄 ${pays.length?`<span class="tag mute">${pays.length}</span>`:''}</h2><div class="list">${pays.length?pays.map(txRow).join(''):empty('還沒有收費紀錄','記一筆收款','new-payment',`data-sid="${s.id}" data-type="single"`)}</div>`;
 }
 // 有筆記的那一堂
 function logCard(s,g){
@@ -185,9 +179,8 @@ function lessonNoteCard(s,l){
   <p class="hint" style="margin:2px 0 0">這堂還沒寫筆記，點一下補寫</p></div></div>`;
 }
 function txRow(p){
-  const [lab,dir]=PAYTYPES[p.type]||['其他','in'];
-  const kind=p.type==='package'?(PKGKIND[p.kind]||'')+' ':'';
-  return `<button class="tx" data-act="edit-payment" data-id="${p.id}"><div class="main"><b>${esc(kind+lab)}${p.type==='package'&&p.sessions?` ${p.sessions} 堂`:''}${p.studentId?` · ${esc(sname(p.studentId))}`:''}</b><small>${dlabel(p.date)}${p.method?' · '+esc(p.method):''}${p.expiry?` · 到期 ${dlabel(p.expiry)}`:''}${p.note?' · '+esc(p.note):''}</small></div><span class="amt ${dir}">${dir==='out'?'−':'+'}${money(p.amount)}</span></button>`;
+  const [lab,dir]=payType(p.type);
+  return `<button class="tx" data-act="edit-payment" data-id="${p.id}"><div class="main"><b>${esc(lab)}${p.studentId?` · ${esc(sname(p.studentId))}`:''}</b><small>${dlabel(p.date)}${p.method?' · '+esc(p.method):''}${p.note?' · '+esc(p.note):''}</small></div><span class="amt ${dir}">${dir==='out'?'−':'+'}${money(p.amount)}</span></button>`;
 }
 
 /* ---------- 收支 ---------- */
@@ -206,7 +199,7 @@ function vMoney(){
   <p class="hint">本月已上 ${done} 堂${done?`，平均每堂淨收入 ${money((inc-exp)/done)}`:''}</p>
   <div class="btns" style="margin-top:12px"><button class="btn pri" data-act="new-payment">＋ 記一筆</button><button class="btn" data-act="export-csv">匯出本月 CSV</button></div>
   ${owes.length?`<h2>單堂制待收款 <span class="tag bad">${owes.length}</span></h2><div class="list">${owes.map(({s,o})=>stuRow(s,`<div class="right neg"><b>${money(o)}</b><small>待收</small></div>`,'點進去登記收款')).join('')}</div>`:''}
-  ${Object.keys(cats).length?`<h2>分類</h2><div class="card" style="display:flex;flex-direction:column;gap:8px">${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="cat"><span>${PAYTYPES[k]?.[0]||k}</span><div class="track"><div class="fill" style="width:${v/max*100}%;background:${PAYTYPES[k]?.[1]==='out'?'var(--bad)':'var(--good)'}"></div></div><span class="num" style="font-weight:600">${money(v)}</span></div>`).join('')}</div>`:''}
+  ${Object.keys(cats).length?`<h2>分類</h2><div class="card" style="display:flex;flex-direction:column;gap:8px">${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="cat"><span>${esc(payType(k)[0])}</span><div class="track"><div class="fill" style="width:${v/max*100}%;background:${payType(k)[1]==='out'?'var(--bad)':'var(--good)'}"></div></div><span class="num" style="font-weight:600">${money(v)}</span></div>`).join('')}</div>`:''}
   <h2>明細</h2><div class="list">${list.length?list.map(txRow).join(''):empty('這個月還沒有收支紀錄','記一筆','new-payment')}</div>`;
 }
 
@@ -215,10 +208,10 @@ function vMore(){
   const leadsOpen=all('leads').filter(l=>['inquiry','trial'].includes(l.status||'inquiry')).length;
   return `<p class="eyebrow">更多</p><h1>工具</h1>
   <div class="menu">
-  <button data-act="sub" data-k="msg"><b>LINE 訊息</b><small>課前提醒、課表、回饋、續約</small></button>
+  <button data-act="sub" data-k="msg"><b>LINE 訊息</b><small>課前提醒、課表、課後回饋、收款提醒</small></button>
   <button data-act="sub" data-k="leads"><b>潛在客群${leadsOpen?` <span class="tag ball">${leadsOpen}</span>`:''}</b><small>詢問、體驗課、成交率</small></button>
   <button data-act="sub" data-k="stats"><b>分析</b><small>收入趨勢、出席率、排行</small></button>
-  <button data-act="sub" data-k="settings"><b>設定與備份</b><small>教練資料、扣堂規則、帳號</small></button></div>
+  <button data-act="sub" data-k="settings"><b>設定與備份</b><small>教練資料、課程價目表、帳號</small></button></div>
   <p class="hint" style="margin-top:20px">${esc(CONFIG.APP_NAME)} 版本 ${CONFIG.VERSION}</p>`;
 }
 const subBack='<button class="back" data-act="sub" data-k="">‹ 更多</button>';
@@ -254,11 +247,11 @@ function vStats(){
   const rate=marks.length?Math.round(marks.filter(v=>v==='present').length/marks.length*100):null;
   const year=t.slice(0,4),byMonth={};all('lessons').filter(l=>l.date.startsWith(year)&&l.status!=='cancelled').forEach(l=>{const k=l.date.slice(0,7);byMonth[k]=(byMonth[k]||0)+1});
   const busiest=Object.entries(byMonth).sort((a,b)=>b[1]-a[1])[0];
-  const lessonInc=all('payments').filter(p=>p.date?.startsWith(year)&&['package','single'].includes(p.type)).reduce((a,p)=>a+Number(p.amount||0),0);
-  const pk=all('payments').filter(p=>p.type==='package'&&p.sessions);
-  const perSession=pk.length?pk.reduce((a,p)=>a+Number(p.amount||0),0)/pk.reduce((a,p)=>a+Number(p.sessions||0),0):0;
-  const avgPkg=pk.length?pk.reduce((a,p)=>a+Number(p.sessions||0),0)/pk.length:0;
-  const rank={};all('payments').filter(p=>p.studentId&&PAYTYPES[p.type]?.[1]==='in').forEach(p=>rank[p.studentId]=(rank[p.studentId]||0)+Number(p.amount||0));
+  const lessonInc=all('payments').filter(p=>p.date?.startsWith(year)&&LESSONPAY.includes(p.type)).reduce((a,p)=>a+Number(p.amount||0),0);
+  let heads=0;all('lessons').filter(l=>l.date.startsWith(year)).forEach(l=>(l.studentIds||[]).forEach(sid=>{if(counted(l,sid))heads++}));
+  const perSession=heads?lessonInc/heads:0;
+  const dueAll=activeStudents().reduce((a,s)=>a+Math.max(0,owed(s)),0);
+  const rank={};all('payments').filter(p=>p.studentId&&payType(p.type)[1]==='in').forEach(p=>rank[p.studentId]=(rank[p.studentId]||0)+Number(p.amount||0));
   const top5=Object.entries(rank).filter(([id])=>byId('students',id)).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const rmax=Math.max(1,...top5.map(x=>x[1]));
   const src={};all('leads').forEach(l=>{const k=l.source||'未填';src[k]=src[k]||{n:0,w:0,c:0};src[k].n++;if(l.status==='won')src[k].w++;if(['won','lost'].includes(l.status))src[k].c++});
@@ -266,7 +259,7 @@ function vStats(){
   const stuSrc={};all('students').forEach(s=>{const k=s.source||'未填';stuSrc[k]=(stuSrc[k]||0)+1});
   const smax=Math.max(1,...Object.values(stuSrc));
   return `${subBack}<p class="eyebrow">分析</p><h1>${year} 年經營概況</h1>
-  <div class="stats four"><div class="stat"><span>出席率</span><b>${rate===null?'—':rate+'%'}</b><small>近 90 天</small></div><div class="stat"><span>每堂均價</span><b>${perSession?money(perSession):'—'}</b><small>依課程包計算</small></div><div class="stat"><span>平均購買</span><b>${avgPkg?fmtNum(Math.round(avgPkg*10)/10)+' 堂':'—'}</b><small>每次購課</small></div><div class="stat"><span>最忙月份</span><b>${busiest?Number(busiest[0].slice(5))+' 月':'—'}</b><small>${busiest?busiest[1]+' 堂':'&nbsp;'}</small></div></div>
+  <div class="stats four"><div class="stat"><span>出席率</span><b>${rate===null?'—':rate+'%'}</b><small>近 90 天</small></div><div class="stat"><span>每人次均價</span><b>${perSession?money(perSession):'—'}</b><small>今年收入 ÷ 人次</small></div><div class="stat"><span>待收款合計</span><b style="color:${dueAll>0?'var(--bad)':'inherit'}">${money(dueAll)}</b><small>上課中的學生</small></div><div class="stat"><span>最忙月份</span><b>${busiest?Number(busiest[0].slice(5))+' 月':'—'}</b><small>${busiest?busiest[1]+' 堂':'&nbsp;'}</small></div></div>
   <h2>近六個月收支</h2><div class="card">${svg}<div class="legend"><span><i style="background:var(--good)"></i>收入</span><span><i style="background:var(--bad)"></i>支出</span></div></div>
   <p class="hint">今年課程收入合計 ${money(lessonInc)}</p>
   <h2>學生繳費排行</h2>${top5.length?`<div class="card" style="display:flex;flex-direction:column;gap:8px">${top5.map(([id,v],i)=>`<div class="cat"><span>${i+1}. ${esc(sname(id))}</span><div class="track"><div class="fill" style="width:${v/rmax*100}%;background:var(--court)"></div></div><span class="num" style="font-weight:600">${money(v)}</span></div>`).join('')}</div>`:'<div class="empty">還沒有繳費紀錄</div>'}
@@ -289,14 +282,11 @@ function vSettings(){
   <div class="f" style="margin-top:0"><label for="st_brand">品牌／球隊名稱</label><input id="st_brand" name="brand" value="${esc(s.brand)}" placeholder="例：Pickle Battle"></div></div>
   <div class="f"><label for="st_loc">常用上課地點</label><input id="st_loc" name="defaultLocation" value="${esc(s.defaultLocation)}"></div>
   <div class="f"><label for="st_dur">預設課程長度</label><select id="st_dur" name="defaultDuration">${[30,60,90,120].map(m=>`<option value="${m}" ${Number(s.defaultDuration)===m?'selected':''}>${m} 分鐘</option>`).join('')}</select></div>
-  <div class="f"><label for="st_mode">扣堂方式</label><select id="st_mode" name="deductMode"><option value="lesson" ${s.deductMode!=='hours'?'selected':''}>每堂扣 1 堂（不論時數）</option><option value="hours" ${s.deductMode==='hours'?'selected':''}>依時數扣（60 分鐘 = 1 堂，90 分鐘 = 1.5 堂）</option></select></div>
   <div class="f"><span class="lb">課程價目表（一堂課的總價）</span>
   <p class="hint" style="margin:0">填的是整堂課的總收費，不是每人。一般課依 1對1～1對4，體驗課依 4～8 人。留空的格子會沿用相鄰人數的價格。</p>
   ${Object.entries(PRICEKIND).map(([k,n])=>`<div class="pricerow"><span class="lb">${n}${k==='trial'?'（4 人起算）':''}</span><div class="priceg">${PRICEHEADS[k].map(h=>`<div class="f"><label for="pr_${k}_${h}">${headLabel(k,h)}</label><input id="pr_${k}_${h}" type="number" min="0" step="10" inputmode="numeric" name="price_${k}_${h}" value="${esc(s.prices[k][h]||'')}" placeholder="${totalPriceFor(k,h)}"></div>`).join('')}</div></div>`).join('')}
-  <p class="hint" style="margin:0">單堂制學生的待收款＝這堂總價 ÷ 上課人數（60 分鐘以外的課，若扣堂方式選「依時數」也會按比例換算）。學生資料若填了「個人專屬單價」，則以專屬單價為準；排課時也可以單獨指定「本堂總價」（例如場租較高的球場），那一堂就以課程上填的為準。</p></div>
-  <div class="grid3"><div class="f"><label for="st_low">剩幾堂提醒續約</label><input id="st_low" type="number" min="0" name="lowAt" value="${esc(s.lowAt)}"></div>
-  <div class="f"><label for="st_idle">幾天沒上課算流失</label><input id="st_idle" type="number" min="1" name="inactiveDays" value="${esc(s.inactiveDays)}"></div>
-  <div class="f"><label for="st_exp">到期前幾天提醒</label><input id="st_exp" type="number" min="0" name="expiryWarnDays" value="${esc(s.expiryWarnDays)}"></div></div>
+  <p class="hint" style="margin:0">學生的待收款＝這堂總價 ÷ 上課人數。學生資料若填了「個人單價」，則以個人單價為準；排課時也可以單獨指定「本堂總價」（例如場租較高的球場），那一堂就以課程上填的為準。</p></div>
+  <div class="f"><label for="st_idle">幾天沒上課就提醒（流失風險）</label><input id="st_idle" type="number" min="1" name="inactiveDays" value="${esc(s.inactiveDays)}"></div>
   <div class="actions"><button class="btn pri grow">儲存設定</button></div></form>
   <h2>備份</h2>
   <p class="sub" style="margin:0">雲端硬碟會自動保留檔案的歷史版本。你也可以另外下載一份備份檔，或匯入之前的備份。</p>
@@ -318,12 +308,11 @@ function buildMsg(){
   if(t==='feedback'){const g=byId('logs',ref);if(!g)return '';const s=byId('students',g.studentId);
     const prev=logsOf(g.studentId).find(x=>x.id!==g.id&&((x.date||'')<(g.date||'')||(x.date===g.date&&(x.createdAt||0)<(g.createdAt||0))));
     const up=prev?SKILLS.filter(([k])=>Number(g.skills?.[k]||0)>Number(prev.skills?.[k]||0)).map(([k,n])=>`${n} ${prev.skills?.[k]||0}→${g.skills[k]}`):[];
-    const rem=s&&hasPkg(s.id)&&!isPerLesson(s)?`\n課程包剩餘：${fmtNum(remaining(s.id))} 堂\n`:'';
-    return `【今日學習回饋】\n${s?.name||''} 您好，今天辛苦了！\n📅 ${dlabel(g.date)}\n\n🏓 本堂重點：${g.focus||'—'}\n${up.length?`📈 進步項目：${up.join('、')}\n`:''}${g.note?`📝 教練觀察：${g.note}\n`:''}${g.homework?`🏠 回家練習：${g.homework}\n`:''}${rem}\n下次見！${sign}`.trim()}
-  if(t==='renew'){const s=byId('students',ref);if(!s)return '';const r=remaining(s.id),f=logsOf(s.id)[0]?.focus,ex=expiryOf(s.id);
-    return `${s.name} 您好！\n您的課程包目前剩 ${fmtNum(r)} 堂${r<=0?'（已用完）':''}${ex?`，到期日 ${dlabel(ex)}`:''}。\n這段時間${f?`在「${f}」`:''}進步很明顯，建議持續上課把手感穩定下來。\n\n若要續約，直接回覆這則訊息即可，我幫您保留固定時段。\n${sign}`.trim()}
+    return `【今日學習回饋】\n${s?.name||''} 您好，今天辛苦了！\n📅 ${dlabel(g.date)}\n\n🏓 本堂重點：${g.focus||'—'}\n${up.length?`📈 進步項目：${up.join('、')}\n`:''}${g.note?`📝 教練觀察：${g.note}\n`:''}${g.homework?`🏠 回家練習：${g.homework}\n`:''}\n下次見！${sign}`.trim()}
+  if(t==='owe'){const s=byId('students',ref);if(!s)return '';const o=owed(s),n=doneCount(s.id),f=logsOf(s.id)[0]?.focus;
+    return `${s.name} 您好！\n跟您核對一下課程費用：目前已上課 ${n} 堂，尚有 ${money(Math.max(0,o))} 未結。\n${f?`這陣子在「${f}」進步很明顯，繼續保持！\n`:''}\n方便的話下次上課時帶來，或先轉帳都可以，有問題再跟我說，謝謝您！\n${sign}`.trim()}
   if(t==='report'){const s=byId('students',ref);if(!s)return '';const ls=logsOf(s.id),g=ls[0],f=ls.length>1?ls[ls.length-1]:null;
-    let txt=`【學習報告】${s.name}\n${s.goal?`目標：${s.goal}\n`:''}累計上課：${fmtNum(usedUnits(s.id))} 堂｜學習紀錄：${ls.length} 筆\n`;
+    let txt=`【學習報告】${s.name}\n${s.goal?`目標：${s.goal}\n`:''}累計上課：${doneCount(s.id)} 堂｜學習紀錄：${ls.length} 筆\n`;
     if(g){txt+=`\n技術評估（${dlabel(g.date)}）\n`+SKILLS.map(([k,n])=>{const v=Number(g.skills?.[k]||0),b=f?Number(f.skills?.[k]||0):null;return `${n}　${stars(v)}${b!==null&&v>b?`  ↑${v-b}`:''}`}).join('\n');if(g.homework)txt+=`\n\n下一階段練習：${g.homework}`}
     return (txt+`\n\n${sign}`).trim()}
   if(t==='trial'){const l=byId('leads',ref);if(!l)return '';const st=SET(),tp=Math.round(totalPriceFor('trial',PRICEHEADS.trial[0])/PRICEHEADS.trial[0]);
@@ -332,15 +321,15 @@ function buildMsg(){
   return '';
 }
 function vMsg(){
-  const types=[['remind','課前提醒'],['week','本週課表'],['feedback','課後回饋'],['renew','續約提醒'],['report','學習報告'],['trial','體驗課邀約'],['custom','自訂公告']];
+  const types=[['remind','課前提醒'],['week','本週課表'],['feedback','課後回饋'],['owe','收款提醒'],['report','學習報告'],['trial','體驗課邀約'],['custom','自訂公告']];
   let pick='';
   const sel=(label,opts)=>opts.length?`<div class="f"><label for="nref">${label}</label><select id="nref" data-input="nref">${opts.map(([v,n])=>`<option value="${v}" ${v===ui.nref?'selected':''}>${esc(n)}</option>`).join('')}</select></div>`:'';
   if(ui.ntype==='remind'){const ls=all('lessons').filter(l=>l.date>=addDays(today(),-1)&&l.status!=='cancelled').sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,40);
     if(!byId('lessons',ui.nref))ui.nref=ls[0]?.id||'';pick=sel('選擇課程',ls.map(l=>[l.id,`${dlabel(l.date)} ${l.time} ${l.title||''}｜${names(l)}`]))||'<div class="empty">沒有即將到來的課程</div>'}
   if(ui.ntype==='feedback'){const gs=all('logs').sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,40);
     if(!byId('logs',ui.nref))ui.nref=gs[0]?.id||'';pick=sel('選擇學習紀錄',gs.map(g=>[g.id,`${dlabel(g.date)}｜${sname(g.studentId)}｜${g.focus||''}`]))||'<div class="empty">還沒有學習紀錄</div>'}
-  if(ui.ntype==='renew'||ui.ntype==='report'){const ss=activeStudents().sort((a,b)=>remaining(a.id)-remaining(b.id));
-    if(!byId('students',ui.nref))ui.nref=ss[0]?.id||'';pick=sel('選擇學生',ss.map(s=>[s.id,`${s.name}${hasPkg(s.id)?`（剩 ${fmtNum(remaining(s.id))} 堂）`:''}`]))||'<div class="empty">還沒有學生</div>'}
+  if(ui.ntype==='owe'||ui.ntype==='report'){const ss=activeStudents().sort((a,b)=>owed(b)-owed(a));
+    if(!byId('students',ui.nref))ui.nref=ss[0]?.id||'';pick=sel('選擇學生',ss.map(s=>[s.id,`${s.name}${owed(s)>0?`（待收 ${money(owed(s))}）`:''}`]))||'<div class="empty">還沒有學生</div>'}
   if(ui.ntype==='trial'){const ls=all('leads').filter(l=>['inquiry','trial'].includes(l.status||'inquiry'));
     if(!byId('leads',ui.nref))ui.nref=ls[0]?.id||'';pick=sel('選擇潛在客群',ls.map(l=>[l.id,`${l.name}${l.trialDate?'｜'+dlabel(l.trialDate):''}`]))||'<div class="empty">沒有跟進中的潛在客群</div>'}
   if(ui.ntype==='week')pick=`<div class="weekbar"><button class="btn sm" data-act="week" data-n="-7">‹ 上週</button><div class="t num">${dlabel(ui.week)} – ${dlabel(addDays(ui.week,6))}</div><button class="btn sm" data-act="week" data-n="7">下週 ›</button></div>`;

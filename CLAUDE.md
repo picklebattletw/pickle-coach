@@ -37,12 +37,12 @@
 - `settings` 新欄位加到 `DEFAULT_SETTINGS`。
 
 ## 功能重點
-- 課程價目表：`settings.prices={normal:{1,2,3,4},trial:{4,5,6,7,8}}`，存的是**一堂課的總價**（不是每人）。一般課依 1對1～1對4，體驗課依 4～8 人（`PRICEHEADS`），人數超出級距會夾到最近的級距；格子留 0 會沿用相鄰人數的價格。課程有 `feeKind`（normal/trial）、`payHeads`（收費人數，0＝依學生人數）與 `feeTotal`（本堂總價，0＝依價目表；舊欄位 `unitPrice` 是每人價格，會自動換算）。單堂制學生每堂應收＝總價 ÷ 人數；優先順序：課程 `feeTotal` > 學生 `price`（個人專屬單價，每人）> 價目表。`singlePrice` 保留為最後的備援值，儲存設定時會同步成一般課 1對1 的價格。
-- 課程包（payments.type='package'，kind 首購/續約/加購，sessions、expiry），點名出席或未到時扣堂；可設定依時數扣堂。
-- 單堂制學生（billing='perLesson'）：計算待收款。
-- 提醒：續約（剩餘 ≤ lowAt）、到期、待收款、太久沒上課。
-- 學習紀錄：8 項技術 1–5 分、雷達圖、學習歷程時間軸。
-- LINE 訊息產生器：`https://line.me/R/share?text=` 分享。
+- **只有單堂計費，沒有課程包／續約／扣堂。** 舊資料裡 `payments.type='package'` 仍會顯示（`OLDPAYTYPES`）並計入已收的課程費（`LESSONPAY`），但不再能新增；學生的 `billing` 欄位已不使用。
+- 課程價目表：`settings.prices={normal:{1,2,3,4},trial:{4,5,6,7,8}}`，存的是**一堂課的總價**（不是每人）。一般課依 1對1～1對4，體驗課依 4～8 人（`PRICEHEADS`），人數超出級距會夾到最近的級距；格子留 0 會沿用相鄰人數的價格。課程有 `feeKind`（normal/trial）、`payHeads`（收費人數，0＝依學生人數）與 `feeTotal`（本堂總價，0＝依價目表；舊欄位 `unitPrice` 是每人價格，會自動換算）。
+- 待收款 `owed(s)`＝已點名計費的課（`counted`：出席或未到，且課程的 `deduct!==false`）應收總和 − 該學生 `LESSONPAY` 類別的收款；每堂應收優先順序：課程 `feeTotal` > 學生 `price`（個人單價）> 價目表總價 ÷ 人數。負數代表學生已預繳。
+- 提醒：待收款、太久沒上課（`inactiveDays`）。
+- 上課歷程與筆記：學生頁列出每一堂課（含請假、未到、還沒點名）與對應筆記；筆記含今天教了什麼／上課狀況／回家作業，技術評分 8 項 1–5 分為選填，有雷達圖。
+- LINE 訊息產生器：`https://line.me/R/share?text=` 分享（課前提醒、本週課表、課後回饋、收款提醒、學習報告、體驗課邀約、自訂公告）。
 - 潛在客群與各來源成交率、分析頁。
 
 ## 注意事項

@@ -13,7 +13,7 @@ function studentOptions(sel,allowNone){return (allowNone?`<option value="">（�
 const srcList=()=>`<datalist id="srcs">${[...new Set([...SOURCES,...all('students').map(s=>s.source),...all('leads').map(l=>l.source)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist>`;
 
 function studentSheet(id,preset={}){
-  const s=id?byId('students',id):{status:'active',billing:'perLesson',color:COLORS[all('students').length%COLORS.length],startDate:today(),...preset};
+  const s=id?byId('students',id):{status:'active',color:COLORS[all('students').length%COLORS.length],startDate:today(),...preset};
   const tags=[...new Set(all('students').flatMap(x=>x.tags||[]))];
   openSheet(id?'編輯學生':'新增學生',`
   <div class="f"><label for="s_name">姓名 *</label><input id="s_name" name="name" required value="${esc(s.name)}"></div>
@@ -24,22 +24,18 @@ function studentSheet(id,preset={}){
   <div class="f"><label for="s_goal">學習目標</label><input id="s_goal" name="goal" placeholder="例：三個月內穩定打 3.0 雙打" value="${esc(s.goal)}"></div>
   <div class="f"><label for="s_tags">標籤（用逗號分隔）</label><input id="s_tags" name="tags" list="tagl" value="${esc((s.tags||[]).join(', '))}" placeholder="例：週二班, 準備比賽"><datalist id="tagl">${tags.map(t=>`<option>${esc(t)}</option>`).join('')}</datalist></div>
   <div class="f"><span class="lb">代表色</span><div class="swatches">${COLORS.map(c=>`<label><input type="radio" name="color" value="${c}" ${s.color===c?'checked':''} aria-label="顏色 ${c}"><span style="background:${c}"></span></label>`).join('')}</div></div>
-  <div class="grid2"><div class="f"><label for="s_bill">收費方式</label><select id="s_bill" name="billing"><option value="perLesson" ${s.billing!=='package'?'selected':''}>單堂制（上一堂收一堂）</option><option value="package" ${s.billing==='package'?'selected':''}>預購課程包</option></select></div>
-  <div class="f"><label for="s_price">個人專屬單價（選填）</label><input id="s_price" type="number" min="0" name="price" value="${esc(s.price||'')}" placeholder="留空＝依人數價目表"></div></div>
-  <p class="hint">單堂制學生的待收款，預設依「設定 › 課程價目表」用上課人數計算；填了專屬單價就一律用這個價格。排課時若單獨填了「本堂每人價格」，那一堂以課程上填的為準。</p>
-  ${!id?`<div class="card pkgnew" style="margin-top:12px" ${s.billing==='package'?'':'hidden'}><span class="lab">同時登記購買課程包（選填）</span><div class="grid3"><div class="f"><label for="s_pn">堂數</label><input id="s_pn" type="number" min="0" name="pkgSessions" placeholder="10"></div><div class="f"><label for="s_pa">金額</label><input id="s_pa" type="number" min="0" name="pkgAmount"></div><div class="f"><label for="s_pe">到期日</label><input id="s_pe" type="date" name="pkgExpiry"></div></div></div>`:''}
+  <div class="f"><label for="s_price">個人單價（選填）</label><input id="s_price" type="number" min="0" name="price" value="${esc(s.price||'')}" placeholder="留空＝依人數價目表"></div>
+  <p class="hint">待收款預設依「設定 › 課程價目表」用上課人數計算；填了個人單價就一律用這個價格。排課時若單獨填了「本堂總價」，那一堂以課程上填的為準。</p>
   <div class="grid2"><div class="f"><label for="s_start">開始上課日</label><input id="s_start" type="date" name="startDate" value="${esc(s.startDate)}"></div>
   <div class="f"><label for="s_st">狀態</label><select id="s_st" name="status"><option value="active" ${(s.status||'active')==='active'?'selected':''}>上課中</option><option value="paused" ${s.status==='paused'?'selected':''}>暫停</option><option value="archived" ${s.status==='archived'?'selected':''}>封存（不再上課）</option></select></div></div>
   <div class="f"><label for="s_notes">備註（慣用手、傷病、習慣等）</label><textarea id="s_notes" name="notes">${esc(s.notes)}</textarea></div>
   <div class="actions"><button class="btn pri grow">儲存</button>${delBtn('students',id)}</div>`,
   fd=>{const o={...s,name:fv(fd,'name'),phone:fv(fd,'phone'),lineId:fv(fd,'lineId'),level:fv(fd,'level'),source:fv(fd,'source'),goal:fv(fd,'goal'),
-      tags:fv(fd,'tags').split(/[,，、]/).map(x=>x.trim().replace(/^#/,'')).filter(Boolean),color:fv(fd,'color')||COLORS[0],billing:fv(fd,'billing'),price:Number(fv(fd,'price'))||0,
+      tags:fv(fd,'tags').split(/[,，、]/).map(x=>x.trim().replace(/^#/,'')).filter(Boolean),color:fv(fd,'color')||COLORS[0],price:Number(fv(fd,'price'))||0,
       startDate:fv(fd,'startDate'),status:fv(fd,'status'),notes:fv(fd,'notes'),createdAt:s.createdAt||Date.now()};
     delete o.leadId;
     if(!o.name)return toast('請填寫姓名');
     const nid=id||uid();put('students',nid,o);
-    const pn=Number(fv(fd,'pkgSessions')||0);
-    if(!id&&pn>0)put('payments',uid(),{type:'package',kind:'first',studentId:nid,sessions:pn,amount:Number(fv(fd,'pkgAmount')||0),expiry:fv(fd,'pkgExpiry'),date:today(),method:'轉帳',note:'',createdAt:Date.now()});
     if(preset.leadId&&byId('leads',preset.leadId))put('leads',preset.leadId,{...byId('leads',preset.leadId),status:'won',studentId:nid});
     closeSheet();toast(id?'已更新':'已新增學生');if(!id){ui.tab='stu';ui.sid=nid;ui.sub=null;render()}});
 }
@@ -63,9 +59,9 @@ function lessonSheet(id,preset={}){
   <div class="f"><label for="l_heads">收費人數</label><input id="l_heads" type="number" min="0" max="20" step="1" inputmode="numeric" name="payHeads" value="${esc(l.payHeads||'')}" placeholder="依人數"></div>
   <div class="f"><label for="l_price">本堂總價</label><input id="l_price" type="number" min="0" step="10" inputmode="numeric" name="feeTotal" value="${esc(l.feeTotal||'')}" placeholder="依價目表"></div></div>
   <p class="hint" id="l_feeinfo"></p>
-  <label class="check"><input type="checkbox" name="deduct" ${l.deduct!==false?'checked':''}> 出席或未到時扣堂（課程包）／計費（單堂制）</label>
+  <label class="check"><input type="checkbox" name="deduct" ${l.deduct!==false?'checked':''}> 出席或未到時計入收費</label>
   ${!id?`<div class="f"><label for="l_rep">每週重複</label><select id="l_rep" name="repeat">${[1,2,4,6,8,10,12].map(n=>`<option value="${n}">${n===1?'不重複':`共 ${n} 週`}</option>`).join('')}</select></div>`:''}
-  ${id&&(l.studentIds||[]).length?`<div class="f"><span class="lb">點名</span>${l.studentIds.map(sid=>`<div class="att"><b>${esc(sname(sid))}</b><div class="seg">${[['present','出席'],['leave','請假'],['noshow','未到']].map(([v,n])=>`<label><input type="radio" name="att_${sid}" value="${v}" ${att[sid]===v?'checked':''}><span>${n}</span></label>`).join('')}</div></div>`).join('')}<p class="hint">請假不扣堂；未到會扣堂。${st.deductMode==='hours'?`這堂依時數扣 ${fmtNum(Number(l.duration||60)/60)} 堂。`:''}</p>${l.studentIds.length>1?'<button type="button" class="btn sm" data-act="all-present" style="margin-top:8px">全部出席</button>':''}
+  ${id&&(l.studentIds||[]).length?`<div class="f"><span class="lb">點名</span>${l.studentIds.map(sid=>`<div class="att"><b>${esc(sname(sid))}</b><div class="seg">${[['present','出席'],['leave','請假'],['noshow','未到']].map(([v,n])=>`<label><input type="radio" name="att_${sid}" value="${v}" ${att[sid]===v?'checked':''}><span>${n}</span></label>`).join('')}</div></div>`).join('')}<p class="hint">請假不計費；未到仍會計費。</p>${l.studentIds.length>1?'<button type="button" class="btn sm" data-act="all-present" style="margin-top:8px">全部出席</button>':''}
   <div class="btns" style="margin-top:8px">${l.studentIds.map(sid=>`<button type="button" class="btn sm" data-act="new-log" data-sid="${sid}" data-lid="${id}">✎ ${esc(sname(sid))}的筆記</button>`).join('')}</div>
   <p class="hint">按筆記會先把這堂的點名存起來，再開筆記。</p></div>`:''}
   ${id?`<div class="f"><label for="l_st">狀態</label><select id="l_st" name="status"><option value="scheduled" ${l.status==='scheduled'?'selected':''}>已排定</option><option value="done" ${l.status==='done'?'selected':''}>已完成</option><option value="cancelled" ${l.status==='cancelled'?'selected':''}>已取消</option></select></div>`:''}
@@ -128,28 +124,22 @@ function lessonOptsHtml(sid,sel){return '<option value="">（不指定）</optio
 
 function paymentSheet(id,preset={}){
   const s=preset.sid?byId('students',preset.sid):null;
-  const p=id?byId('payments',id):{type:preset.type||'package',kind:preset.sid&&hasPkg(preset.sid)?'renew':'first',studentId:preset.sid||'',date:today(),method:'轉帳',sessions:10,amount:preset.type==='single'&&s?Math.max(0,owed(s)):''};
-  const carry=preset.sid&&!id&&p.type==='package'?remaining(preset.sid):null;
-  openSheet(id?'編輯收支':(p.type==='package'&&preset.sid?'續約／購課':'記一筆'),`
-  <div class="f"><label for="p_t">類別</label><select id="p_t" name="type">${Object.entries(PAYTYPES).map(([k,[n,d]])=>`<option value="${k}" ${p.type===k?'selected':''}>${d==='in'?'收入':'支出'}・${n}</option>`).join('')}</select></div>
+  const p=id?byId('payments',id):{type:preset.type||'single',studentId:preset.sid||'',date:today(),method:'轉帳',amount:s?Math.max(0,owed(s)):''};
+  const due=preset.sid&&!id?owed(s):null;
+  const opts=Object.entries(PAYTYPES).concat(byId('payments',id)&&!PAYTYPES[p.type]?[[p.type,payType(p.type)]]:[]);
+  openSheet(id?'編輯收支':(preset.sid?'收款':'記一筆'),`
+  <div class="f"><label for="p_t">類別</label><select id="p_t" name="type">${opts.map(([k,[n,d]])=>`<option value="${k}" ${p.type===k?'selected':''}>${d==='in'?'收入':'支出'}・${n}</option>`).join('')}</select></div>
   <div class="f"><label for="p_s">學生</label><select id="p_s" name="studentId">${studentOptions(p.studentId,true)}</select></div>
-  <div class="f pkgonly"><span class="lb">購課類型</span><div class="picks">${Object.entries(PKGKIND).map(([k,n])=>`<label class="pick"><input type="radio" name="kind" value="${k}" ${(p.kind||'first')===k?'checked':''}><span>${n}</span></label>`).join('')}</div></div>
   <div class="grid2"><div class="f"><label for="p_a">金額（元）</label><input id="p_a" type="number" min="0" step="1" inputmode="numeric" name="amount" required value="${esc(p.amount)}"></div>
-  <div class="f pkgonly"><label for="p_n">堂數</label><input id="p_n" type="number" min="0" step="0.5" name="sessions" value="${esc(p.sessions||'')}"></div></div>
-  <div class="grid2"><div class="f"><label for="p_d">日期</label><input id="p_d" type="date" name="date" value="${esc(p.date)}"></div>
-  <div class="f pkgonly"><label for="p_e">到期日（選填）</label><input id="p_e" type="date" name="expiry" value="${esc(p.expiry)}"></div></div>
+  <div class="f"><label for="p_d">日期</label><input id="p_d" type="date" name="date" value="${esc(p.date)}"></div></div>
   <div class="f"><label for="p_m">付款方式</label><select id="p_m" name="method">${METHODS.map(m=>`<option ${p.method===m?'selected':''}>${m}</option>`).join('')}</select></div>
-  <div class="f"><label for="p_note">備註</label><input id="p_note" name="note" value="${esc(p.note)}" placeholder="例：10 堂方案、場地租借 2 小時"></div>
-  ${carry!==null&&carry!==0?`<p class="hint">${carry>0?`目前還剩 ${fmtNum(carry)} 堂，新購的堂數會直接加上去（結轉）。`:`目前超上 ${fmtNum(-carry)} 堂，新購的堂數會先扣掉這些。`}</p>`:''}
-  <p class="hint">課程包登記後，點名出席或未到時會自動扣堂。</p>
+  <div class="f"><label for="p_note">備註</label><input id="p_note" name="note" value="${esc(p.note)}" placeholder="例：9 月課程費、場地租借 2 小時"></div>
+  ${due!==null&&due>0?`<p class="hint">${esc(s?.name||'')}目前待收 ${money(due)}，金額已先帶入，可以自行修改。</p>`:''}
   <div class="actions"><button class="btn pri grow">儲存</button>${delBtn('payments',id)}</div>`,
-  fd=>{const type=fv(fd,'type');const o={...p,type,studentId:fv(fd,'studentId'),amount:Number(fv(fd,'amount')||0),sessions:type==='package'?Number(fv(fd,'sessions')||0):0,kind:type==='package'?fv(fd,'kind')||'first':'',expiry:type==='package'?fv(fd,'expiry'):'',date:fv(fd,'date')||today(),method:fv(fd,'method'),note:fv(fd,'note'),createdAt:p.createdAt||Date.now()};
-    if(type==='package'&&!o.studentId)return toast('課程包請選擇學生');
-    if(type==='package'&&!o.sessions)return toast('請填寫堂數');
+  fd=>{const type=fv(fd,'type');const o={...p,type,studentId:fv(fd,'studentId'),amount:Number(fv(fd,'amount')||0),date:fv(fd,'date')||today(),method:fv(fd,'method'),note:fv(fd,'note'),createdAt:p.createdAt||Date.now()};
+    if(type==='single'&&!o.studentId)return toast('課程收費請選擇學生');
     put('payments',id||uid(),o);closeSheet();toast('已記帳')});
-  togglePkg();
 }
-function togglePkg(){const t=document.getElementById('p_t');if(!t)return;document.querySelectorAll('#sf .pkgonly').forEach(n=>n.hidden=t.value!=='package')}
 
 function leadSheet(id){
   const l=id?byId('leads',id):{status:'inquiry',date:today()};
@@ -180,8 +170,8 @@ function ics(l){
   return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//PickleCoach//ZH','BEGIN:VEVENT',`UID:${l.id}@picklecoach`,`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,'').slice(0,15)}Z`,`DTSTART;TZID=Asia/Taipei:${dt(l.date,l.time)}`,`DTEND;TZID=Asia/Taipei:${dt(l.date,endTime(l.time,l.duration))}`,`SUMMARY:${e((l.title||'匹克球課')+'｜'+names(l))}`,`LOCATION:${e(l.location)}`,`DESCRIPTION:${e(l.note)}`,'BEGIN:VALARM','TRIGGER:-PT60M','ACTION:DISPLAY','DESCRIPTION:上課提醒','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
 }
 function csv(){
-  const rows=[['日期','類別','購課類型','收支','學生','金額','堂數','到期日','方式','備註']];
-  all('payments').filter(p=>(p.date||'').startsWith(ui.month)).sort((a,b)=>a.date.localeCompare(b.date)).forEach(p=>{const[n,d]=PAYTYPES[p.type]||['其他','in'];rows.push([p.date,n,PKGKIND[p.kind]||'',d==='in'?'收入':'支出',p.studentId?sname(p.studentId):'',p.amount,p.sessions||'',p.expiry||'',p.method||'',p.note||''])});
+  const rows=[['日期','類別','收支','學生','金額','方式','備註']];
+  all('payments').filter(p=>(p.date||'').startsWith(ui.month)).sort((a,b)=>a.date.localeCompare(b.date)).forEach(p=>{const[n,d]=payType(p.type);rows.push([p.date,n,d==='in'?'收入':'支出',p.studentId?sname(p.studentId):'',p.amount,p.method||'',p.note||''])});
   return '﻿'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
 }
 function importBackup(file){
@@ -196,18 +186,17 @@ function importBackup(file){
 function seedDemo(){
   const t=today(),ws=weekStart(t),now=Date.now();let k=0;const mk=o=>({...o,createdAt:now+(k++),updatedAt:now});
   D=emptyData();D.settings=fillSettings({coachName:'教練',brand:'範例匹克球教室',defaultLocation:'大安運動中心 B2',updatedAt:now});
-  const S=(id,o)=>D.students[id]={id,status:'active',billing:'perLesson',...mk(o)};
+  const S=(id,o)=>D.students[id]={id,status:'active',...mk(o)};
   S('s1',{name:'範例・王小明',level:'2.5',source:'朋友介紹',goal:'年底前穩定打 3.0 雙打',tags:['週二班'],color:COLORS[0],startDate:addDays(t,-45),phone:'0912-000-111',lineId:'xiaoming_pb',notes:'右手持拍，反手偏弱'});
   S('s2',{name:'範例・陳美玲',level:'初學',source:'Instagram',goal:'學會規則，能和朋友打休閒賽',tags:['週二班'],color:COLORS[1],startDate:addDays(t,-25)});
-  S('s3',{name:'範例・林志豪',level:'3.0',source:'體驗課',goal:'參加下個月業餘賽',tags:['準備比賽'],color:COLORS[2],billing:'package',startDate:addDays(t,-60),notes:'網球轉匹克球，抽球習慣過重'});
-  S('s4',{name:'範例・張雅婷',level:'2.0',source:'LINE 社群',goal:'增加運動量',color:COLORS[4],billing:'perLesson',startDate:addDays(t,-20)});
+  S('s3',{name:'範例・林志豪',level:'3.0',source:'體驗課',goal:'參加下個月業餘賽',tags:['準備比賽'],color:COLORS[2],startDate:addDays(t,-60),notes:'網球轉匹克球，抽球習慣過重'});
+  S('s4',{name:'範例・張雅婷',level:'2.0',source:'LINE 社群',goal:'增加運動量',color:COLORS[4],startDate:addDays(t,-20)});
   const P=(id,o)=>D.payments[id]={id,...mk(o)};
   P('p1',{type:'single',studentId:'s1',amount:4000,date:addDays(t,-21),method:'轉帳',note:'4 堂課費'});
   P('p2',{type:'single',studentId:'s2',amount:2000,date:addDays(t,-14),method:'LINE Pay',note:'2 堂課費'});
-  P('p3',{type:'package',kind:'renew',studentId:'s3',amount:12000,sessions:10,date:addDays(t,-12),method:'現金',note:'第二期'});
-  P('p3a',{type:'package',kind:'first',studentId:'s3',amount:12000,sessions:10,date:addDays(t,-60),method:'現金',note:'10 堂方案'});
+  P('p3',{type:'single',studentId:'s3',amount:5000,date:addDays(t,-12),method:'現金',note:'5 堂課費'});
   P('p4',{type:'venue',amount:1600,date:addDays(t,-8),method:'轉帳',note:'場地租借 4 小時'});
-  P('p5',{type:'single',studentId:'s4',amount:900,date:addDays(t,-13),method:'現金'});
+  P('p5',{type:'single',studentId:'s4',amount:900,date:addDays(t,-13),method:'現金',note:'課程費'});
   const L=(id,d,time,o)=>D.lessons[id]={id,date:d,time,duration:60,title:'一對一私人課',type:'private',capacity:4,location:'大安運動中心 B2',deduct:true,attendance:{},status:'scheduled',note:'',...mk(o)};
   for(let i=1;i<=8;i++){const d=addDays(t,-i*7);if(i<=6)L('w3'+i,addDays(d,1),'10:00',{studentIds:['s3'],attendance:{s3:'present'},status:'done'});}
   for(let i=1;i<=5;i++)L('w1'+i,addDays(t,-i*7+2),'19:00',{studentIds:['s1'],attendance:{s1:i===3?'leave':'present'},status:'done'});

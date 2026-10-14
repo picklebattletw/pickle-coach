@@ -12,8 +12,8 @@ function showGate(){
     <h1>${esc(CONFIG.APP_NAME)}</h1>
     <p class="sub">給匹克球教練的學生、課表、收費與學習紀錄管理工具。</p>
     <ul>
-      <li><div><b>排課、點名、自動扣堂</b><small>課程包剩幾堂、何時到期、誰該續約，一眼看到</small></div></li>
-      <li><div><b>學生學習歷程</b><small>每堂課的技術評分、雷達圖、回家作業</small></div></li>
+      <li><div><b>排課、點名、自動計費</b><small>依上課人數算錢，誰還沒付款一眼看到</small></div></li>
+      <li><div><b>學生上課歷程與筆記</b><small>每堂教了什麼、狀況如何，技術評分與雷達圖</small></div></li>
       <li><div><b>收支記帳與分析</b><small>月收入、出席率、學生來源與成交率</small></div></li>
       <li><div><b>一鍵產生 LINE 訊息</b><small>課前提醒、本週課表、課後回饋、續約提醒</small></div></li>
     </ul>
@@ -100,8 +100,6 @@ document.addEventListener('change',e=>{
   if(t.id==='g_s'){document.getElementById('g_l').innerHTML=lessonOptsHtml(t.value,'');const pv=logsOf(t.value)[0];
     SKILLS.forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
   if(t.id==='l_type'){const ti=document.getElementById('l_title');if(t.value==='group'&&ti.value==='一對一私人課')ti.value='初學團體班'}
-  if(t.id==='p_t')togglePkg();
-  if(t.id==='s_bill')document.querySelectorAll('#sf .pkgnew').forEach(n=>n.hidden=t.value!=='package');
   if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
   if(t.id==='importFile'&&t.files[0]){importBackup(t.files[0]);t.value=''}
 });
@@ -109,7 +107,7 @@ document.addEventListener('submit',e=>{
   e.preventDefault();
   if(e.target.id==='setForm'){const fd=new FormData(e.target);const num=k=>Number(fv(fd,k)||0);
     const prices={};for(const k of Object.keys(PRICEKIND)){prices[k]={};for(const h of PRICEHEADS[k])prices[k][h]=Math.max(0,num(`price_${k}_${h}`))}
-    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,singlePrice:prices.normal[1]||SET().singlePrice,deductMode:fv(fd,'deductMode'),lowAt:num('lowAt'),inactiveDays:num('inactiveDays')||21,expiryWarnDays:num('expiryWarnDays')});toast('設定已儲存');return}
+    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
   if(e.target.id==='sf'&&sheetSubmit)sheetSubmit(new FormData(e.target));
 });
 document.getElementById('fab').addEventListener('click',()=>{
