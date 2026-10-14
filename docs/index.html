@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>匹克球教練本</title>
+<title>匹克球教練筆記</title>
 <meta name="description" content="給匹克球教練的學生、課表、收費與學習紀錄管理工具，資料存在你自己的 Google 雲端硬碟。">
 <meta name="theme-color" content="#1E5D78">
 <link rel="manifest" href="manifest.webmanifest">
@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="教練本">
+<meta name="apple-mobile-web-app-title" content="教練筆記">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Barlow+Condensed:wght@500;600;700&display=swap">
 <style>
@@ -235,7 +235,7 @@ nav.tabs button.on{color:var(--court)}
 <div id="shell" hidden>
 <header class="top"><div class="in">
   <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="var(--ball)"/><g fill="var(--court)" opacity=".8"><circle cx="11" cy="11" r="1.8"/><circle cx="19" cy="9" r="1.8"/><circle cx="23" cy="16" r="1.8"/><circle cx="15" cy="17" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="19" cy="23" r="1.8"/><circle cx="12" cy="25" r="1.4"/></g></svg>
-  <div class="brand">匹克球教練本<small id="brandSub"></small></div>
+  <div class="brand">匹克球教練筆記<small id="brandSub"></small></div>
   <div class="sp"></div>
   <button class="sync" id="sync" type="button"><span class="dot"></span><span></span></button>
 </div></header>
@@ -254,13 +254,15 @@ nav.tabs button.on{color:var(--court)}
 <script>
 /* ================== 設定（部署時只需要改這裡） ================== */
 const CONFIG = {
-  APP_NAME: '匹克球教練本',
+  APP_NAME: '匹克球教練筆記',
   // 到 Google Cloud Console 建立「OAuth 用戶端 ID（網頁應用程式）」後貼在這裡
   GOOGLE_CLIENT_ID: '1077129293968-bf6dib39uopauv90j3l9107ardu57290.apps.googleusercontent.com',
-  DRIVE_FOLDER: '匹克球教練本',
+  DRIVE_FOLDER: '匹克球教練筆記',
+  // 舊版用過的資料夾名稱，改名前就在用的人要能繼續找到自己的資料
+  LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.2.0'
+  VERSION: '1.3.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -441,7 +443,11 @@ async function driveFind(q){const r=await gfetch(`${DRIVE}/files?q=${encodeURICo
 async function ensureFile(){
   if(store.fileId){try{await gfetch(`${DRIVE}/files/${store.fileId}?fields=id,trashed`).then(r=>r.json()).then(m=>{if(m.trashed)store.fileId=''})}catch(e){if(e.code==='http')store.fileId='';else throw e}}
   if(store.fileId)return store.fileId;
-  let folder=(await driveFind(`name='${CONFIG.DRIVE_FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`))[0];
+  let folder;
+  for(const nm of [CONFIG.DRIVE_FOLDER,...(CONFIG.LEGACY_FOLDERS||[])]){
+    folder=(await driveFind(`name='${nm}' and mimeType='application/vnd.google-apps.folder' and trashed=false`))[0];
+    if(folder)break;
+  }
   if(!folder){folder=await (await gfetch(`${DRIVE}/files?fields=id`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:CONFIG.DRIVE_FOLDER,mimeType:'application/vnd.google-apps.folder'})})).json()}
   store.folderId=folder.id;
   let file=(await driveFind(`name='${CONFIG.DRIVE_FILE}' and '${folder.id}' in parents and trashed=false`))[0];

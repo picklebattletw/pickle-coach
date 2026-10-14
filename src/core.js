@@ -1,12 +1,14 @@
 /* ================== 設定（部署時只需要改這裡） ================== */
 const CONFIG = {
-  APP_NAME: '匹克球教練本',
+  APP_NAME: '匹克球教練筆記',
   // 到 Google Cloud Console 建立「OAuth 用戶端 ID（網頁應用程式）」後貼在這裡
   GOOGLE_CLIENT_ID: '1077129293968-bf6dib39uopauv90j3l9107ardu57290.apps.googleusercontent.com',
-  DRIVE_FOLDER: '匹克球教練本',
+  DRIVE_FOLDER: '匹克球教練筆記',
+  // 舊版用過的資料夾名稱，改名前就在用的人要能繼續找到自己的資料
+  LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.2.0'
+  VERSION: '1.3.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -187,7 +189,11 @@ async function driveFind(q){const r=await gfetch(`${DRIVE}/files?q=${encodeURICo
 async function ensureFile(){
   if(store.fileId){try{await gfetch(`${DRIVE}/files/${store.fileId}?fields=id,trashed`).then(r=>r.json()).then(m=>{if(m.trashed)store.fileId=''})}catch(e){if(e.code==='http')store.fileId='';else throw e}}
   if(store.fileId)return store.fileId;
-  let folder=(await driveFind(`name='${CONFIG.DRIVE_FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`))[0];
+  let folder;
+  for(const nm of [CONFIG.DRIVE_FOLDER,...(CONFIG.LEGACY_FOLDERS||[])]){
+    folder=(await driveFind(`name='${nm}' and mimeType='application/vnd.google-apps.folder' and trashed=false`))[0];
+    if(folder)break;
+  }
   if(!folder){folder=await (await gfetch(`${DRIVE}/files?fields=id`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:CONFIG.DRIVE_FOLDER,mimeType:'application/vnd.google-apps.folder'})})).json()}
   store.folderId=folder.id;
   let file=(await driveFind(`name='${CONFIG.DRIVE_FILE}' and '${folder.id}' in parents and trashed=false`))[0];

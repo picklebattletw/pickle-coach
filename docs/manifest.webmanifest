@@ -1,6 +1,6 @@
 {
-  "name": "匹克球教練本",
-  "short_name": "教練本",
+  "name": "匹克球教練筆記",
+  "short_name": "教練筆記",
   "description": "給匹克球教練的學生、課表、收費與學習紀錄管理工具",
   "start_url": "./",
   "scope": "./",

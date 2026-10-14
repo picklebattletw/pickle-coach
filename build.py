@@ -14,7 +14,7 @@ head = f'''<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>匹克球教練本</title>
+<title>匹克球教練筆記</title>
 <meta name="description" content="給匹克球教練的學生、課表、收費與學習紀錄管理工具，資料存在你自己的 Google 雲端硬碟。">
 <meta name="theme-color" content="#1E5D78">
 <link rel="manifest" href="manifest.webmanifest">
@@ -22,7 +22,7 @@ head = f'''<!doctype html>
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="教練本">
+<meta name="apple-mobile-web-app-title" content="教練筆記">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 {fonts}
 <style>
@@ -44,7 +44,7 @@ img{{max-width:100%}}
 dist = R / 'docs'; dist.mkdir(exist_ok=True)
 (dist / 'index.html').write_text(head)
 
-preview = f'''<title>匹克球教練本</title>
+preview = f'''<title>匹克球教練筆記</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 {fonts}
 <style>
