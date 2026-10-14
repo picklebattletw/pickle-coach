@@ -8,7 +8,7 @@ const CONFIG = {
   LEGACY_FOLDERS: ['匹克球教練本'],
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.7.1'
+  VERSION: '1.7.2'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -127,7 +127,7 @@ const counted=(l,sid)=>l.status!=='cancelled'&&l.deduct!==false&&['present','nos
 const lessonsOf=sid=>all('lessons').filter(l=>(l.studentIds||[]).includes(sid));
 const doneCount=sid=>lessonsOf(sid).filter(l=>(l.attendance||{})[sid]==='present').length; // 已上課堂數
 // 某堂課、某位學生的「當場收費」紀錄（勾了已收費就會自動建立這一筆）
-const lessonPayOf=(lid,sid)=>all('payments').find(p=>p.lessonId===lid&&p.studentId===sid&&p.type==='single')||null;
+const lessonPayOf=(lid,sid)=>all('payments').find(p=>p.lessonId===lid&&(p.studentId||'')===(sid||'')&&p.type==='single')||null;
 const paysOf=sid=>all('payments').filter(p=>p.studentId===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 function owed(s){ // 待收款＝已點名計費的課 − 已收的課程費
   if(!s)return 0;

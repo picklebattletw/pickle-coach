@@ -52,7 +52,7 @@ function lessonSheet(id,preset={}){
   <div class="f"><label for="l_dur">時長</label><select id="l_dur" name="duration">${[30,45,60,90,120,150,180].map(m=>`<option value="${m}" ${Number(l.duration)===m?'selected':''}>${m} 分</option>`).join('')}</select></div></div>
   <div class="f"><label for="l_title">課程名稱（選填）</label><input id="l_title" name="title" list="titles" value="${esc(l.title)}" placeholder="留空就顯示「匹克球課」"><datalist id="titles">${[...new Set(['一對一私人課','雙人課','初學團體班','進階團體班','對打實戰課',...all('lessons').map(x=>x.title)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
   <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
-  <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}</div>
+  <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}<p class="hint" style="margin:4px 0 0">體驗課或還沒建檔的學員，可以不選學生，直接填下面的「收費人數」。</p></div>
   <div class="grid3"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
   <div class="f"><label for="l_heads">收費人數</label><input id="l_heads" type="number" min="0" max="20" step="1" inputmode="numeric" name="payHeads" value="${esc(l.payHeads||'')}" placeholder="依人數"></div>
   <div class="f"><label for="l_price">本堂總價</label><input id="l_price" type="number" min="0" step="10" inputmode="numeric" name="feeTotal" value="${esc(l.feeTotal||'')}" placeholder="依價目表"></div></div>
@@ -64,6 +64,9 @@ function lessonSheet(id,preset={}){
     <label class="paid"><input type="checkbox" name="paid_${sid}" ${lessonPayOf(id,sid)?'checked':''} ${chg&&l.deduct!==false?'':'disabled'}> 已收 <span class="amt2">${money(studentFee(l,byId('students',sid)))}</span></label></div>`}).join('')}<p class="hint">請假不計費；未到仍會計費。勾「已收」儲存後會自動在收支記上一筆，待收款就歸零了。</p>${l.studentIds.length>1?'<div class="btns" style="margin-top:8px"><button type="button" class="btn sm" data-act="all-present">全部出席</button><button type="button" class="btn sm" data-act="all-paid">全部已收</button></div>':''}
   <div class="btns" style="margin-top:8px">${l.studentIds.map(sid=>`<button type="button" class="btn sm" data-act="new-log" data-sid="${sid}" data-lid="${id}">✎ ${esc(sname(sid))}的筆記</button>`).join('')}</div>
   <p class="hint">按筆記會先把這堂的點名存起來，再開筆記。</p></div>`:''}
+  ${id&&!(l.studentIds||[]).length?`<div class="f"><span class="lb">這堂的收費</span>
+  <label class="paid solo"><input type="checkbox" name="paidAll" ${lessonPayOf(id,'')?'checked':''} ${l.deduct!==false&&l.status!=='cancelled'?'':'disabled'}> 已收 <span class="amt2">${money(lessonFee(l))}</span></label>
+  <p class="hint">這堂沒有指定學生（例如體驗課）。勾「已收」儲存後，會用上面的「本堂總價」在收支記一筆收入。</p></div>`:''}
   ${id?`<div class="f"><label for="l_st">狀態</label><select id="l_st" name="status"><option value="scheduled" ${l.status==='scheduled'?'selected':''}>已排定</option><option value="done" ${l.status==='done'?'selected':''}>已完成</option><option value="cancelled" ${l.status==='cancelled'?'selected':''}>已取消</option></select></div>`:''}
   <div class="f"><label for="l_note">備註</label><textarea id="l_note" name="note">${esc(l.note)}</textarea></div>
   <div class="actions"><button class="btn pri grow">儲存</button>${delBtn('lessons',id)}</div>
@@ -83,6 +86,12 @@ function lessonSheet(id,preset={}){
         else if(want&&ex){if(Number(ex.amount)!==fee||ex.date!==o.date)put('payments',ex.id,{...ex,amount:fee,date:o.date});got+=fee}
         else if(!want&&ex)del('payments',ex.id);
       });
+      if(!sids.length){
+        const ex=lessonPayOf(id,''),want=fd.get('paidAll')==='on'&&o.deduct!==false&&o.status!=='cancelled',fee=lessonFee(o);
+        if(want&&!ex){put('payments',uid(),{type:'single',studentId:'',lessonId:id,amount:fee,date:o.date,method:'現金',note:o.title||'體驗課',createdAt:Date.now()});got+=fee}
+        else if(want&&ex){if(Number(ex.amount)!==fee||ex.date!==o.date)put('payments',ex.id,{...ex,amount:fee,date:o.date});got+=fee}
+        else if(!want&&ex)del('payments',ex.id);
+      }
       closeSheet();toast((got?`已儲存，收費 ${money(got)}`:'已儲存')+(clash?`。注意：和 ${clash.time} 的課時間重疊`:''));
     }else{const n=Number(fv(fd,'repeat')||1);o.attendance={};o.status='scheduled';o.createdAt=Date.now();
       for(let i=0;i<n;i++)put('lessons',uid(),{...o,date:addDays(o.date,i*7)});
@@ -104,6 +113,9 @@ function feeInfo(){
     box.textContent=`${PRICEKIND[kind]} ${headLabel(kind,bh)}：整堂 ${money(tot)}，平均每人 ${money(perHead(l))}。`
       +(own>0?'這堂是自訂總價，不受價目表影響。':bh!==n?`（${PRICEKIND[kind]}價目表最少 ${PRICEHEADS[kind][0]} 人起算）`:'')
       +(own>0?'':'價格可到「更多 › 設定 › 課程價目表」調整，或在上面直接填這堂的總價。');}
+  const solo=f.querySelector('[name="paidAll"]');
+  if(solo){const amt=solo.parentElement.querySelector('.amt2');if(amt)amt.textContent=money(lessonFee(l));
+    solo.disabled=!charge;if(!charge)solo.checked=false}
   // 點名列的「已收 NT$X」要跟著現在表單上的設定走，不是用存檔前的舊資料
   f.querySelectorAll('.att').forEach(row=>{
     const cb=row.querySelector('[name^="paid_"]');if(!cb)return;
@@ -173,7 +185,6 @@ function paymentSheet(id,preset={}){
   ${due!==null&&due>0?`<p class="hint">${esc(s?.name||'')}目前待收 ${money(due)}，金額已先帶入，可以自行修改。</p>`:''}
   <div class="actions"><button class="btn pri grow">儲存</button>${delBtn('payments',id)}</div>`,
   fd=>{const type=fv(fd,'type');const o={...p,type,studentId:fv(fd,'studentId'),amount:Number(fv(fd,'amount')||0),date:fv(fd,'date')||today(),method:fv(fd,'method'),note:fv(fd,'note'),createdAt:p.createdAt||Date.now()};
-    if(type==='single'&&!o.studentId)return toast('課程收費請選擇學生');
     put('payments',id||uid(),o);closeSheet();toast('已記帳')});
 }
 

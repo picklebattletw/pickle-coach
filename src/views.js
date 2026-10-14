@@ -28,7 +28,7 @@ function empty(msg,btn,act,extra=''){return `<div class="empty"><p>${msg}</p>${b
 function stLabel(l){
   if(l.status==='cancelled')return '<span class="tag mute">已取消</span>';
   const ch=(l.studentIds||[]).filter(sid=>counted(l,sid));
-  if(ch.length&&ch.every(sid=>lessonPayOf(l.id,sid)))return '<span class="tag good">已收費</span>';
+  if(ch.length?ch.every(sid=>lessonPayOf(l.id,sid)):lessonPayOf(l.id,''))return '<span class="tag good">已收費</span>';
   if(l.status==='done')return '<span class="tag good">已完成</span>';
   return '';
 }
