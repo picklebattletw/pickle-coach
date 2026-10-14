@@ -32,8 +32,8 @@ function stLabel(l){
   return '';
 }
 function lessonCard(l){
-  const n=headsOf(l);
-  const tp=(feeKindOf(l)==='trial'?'<span class="tag ball">體驗</span>':'')+(l.type==='group'?`<span class="tag">團體 ${(l.studentIds||[]).length}/${l.capacity||4}</span>`:`<span class="tag">${n>4?n+' 人':HEADLABEL[n]}</span>`);
+  const n=headsOf(l),tk=feeKindOf(l);
+  const tp=tk==='trial'?`<span class="tag ball">體驗 ${n} 人</span>`:(l.type==='group'?`<span class="tag">團體 ${(l.studentIds||[]).length}/${l.capacity||4}</span>`:`<span class="tag">${n>4?n+' 人':headLabel('normal',n)}</span>`);
   const col=(l.studentIds||[]).length===1?sColor(byId('students',l.studentIds[0])):'';
   return `<button class="lesson ${l.status||''}" data-act="edit-lesson" data-id="${l.id}">
     <div class="time" ${col&&l.status==='scheduled'?`style="border-color:${col}"`:''}><b>${esc(l.time)}</b><span>${endTime(l.time,l.duration)}</span></div>
@@ -136,8 +136,8 @@ function vStudent(s){
   const paid=all('payments').filter(p=>p.studentId===s.id&&PAYTYPES[p.type]?.[1]==='in').reduce((a,p)=>a+Number(p.amount||0),0);
   const logs=logsOf(s.id),latest=logs[0],first=logs.length>1?logs[logs.length-1]:null;
   const loggedLessons=new Set(logs.map(l=>l.lessonId).filter(Boolean));
-  const attended=lessonsOf(s.id).filter(l=>(l.attendance||{})[s.id]==='present');
-  const items=[...logs.map(l=>({k:'log',d:l.date,o:l})),...attended.filter(l=>!loggedLessons.has(l.id)).map(l=>({k:'att',d:l.date,o:l}))].sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+  const past=lessonsOf(s.id).filter(l=>l.status!=='cancelled'&&l.date<=today()&&!loggedLessons.has(l.id));
+  const items=[...logs.map(l=>({k:'log',d:l.date,o:l})),...past.map(l=>({k:'att',d:l.date,o:l}))].sort((a,b)=>(b.d||'').localeCompare(a.d||'')||(b.o.time||'').localeCompare(a.o.time||''));
   const marked=lessonsOf(s.id).filter(l=>l.status!=='cancelled'&&(l.attendance||{})[s.id]);
   const rate=marked.length?Math.round(marked.filter(l=>l.attendance[s.id]==='present').length/marked.length*100):null;
   const pkgs=packagesOf(s.id).slice().reverse();
@@ -152,15 +152,37 @@ function vStudent(s){
   ${(s.tags||[]).length?`<div class="chips" style="margin-top:6px">${s.tags.map(t=>`<span class="tag">#${esc(t)}</span>`).join('')}</div>`:''}</div></div>
   ${s.goal?`<p class="sub" style="margin-top:10px"><span class="lab">目標</span>　${esc(s.goal)}</p>`:''}
   <div class="stats four">${firstStat}<div class="stat"><span>已上課</span><b>${fmtNum(used)} 堂</b><small>${rate===null?'&nbsp;':'出席率 '+rate+'%'}</small></div><div class="stat"><span>累計繳費</span><b>${money(paid)}</b><small>${pkgs.length?`購課 ${pkgs.length} 次`:'&nbsp;'}</small></div><div class="stat"><span>下一堂</span><b style="font-size:18px">${nl?dlabel(nl.date):'未排'}</b><small>${nl?esc(nl.time):'&nbsp;'}</small></div></div>
-  <div class="btns" style="margin-top:14px"><button class="btn pri" data-act="new-log" data-sid="${s.id}">寫學習紀錄</button><button class="btn" data-act="new-payment" data-sid="${s.id}" data-type="${isPerLesson(s)?'single':'package'}">${isPerLesson(s)?'收款':'續約／購課'}</button><button class="btn" data-act="new-lesson" data-sid="${s.id}">排課</button><button class="btn line" data-act="share-report" data-sid="${s.id}">傳學習報告</button><button class="btn" data-act="edit-student" data-id="${s.id}">編輯資料</button></div>
+  <div class="btns" style="margin-top:14px"><button class="btn pri" data-act="new-log" data-sid="${s.id}">寫上課筆記</button><button class="btn" data-act="new-payment" data-sid="${s.id}" data-type="${isPerLesson(s)?'single':'package'}">${isPerLesson(s)?'收款':'續約／購課'}</button><button class="btn" data-act="new-lesson" data-sid="${s.id}">排課</button><button class="btn line" data-act="share-report" data-sid="${s.id}">傳學習報告</button><button class="btn" data-act="edit-student" data-id="${s.id}">編輯資料</button></div>
   <h2>技術能力</h2>
   ${latest?`<div class="card radarwrap"><div>${radarSVG(latest.skills||{},first?.skills)}<div class="legend"><span><i style="background:var(--court)"></i>最新 ${dlabel(latest.date)}</span>${first?`<span><i style="background:var(--muted)"></i>第一次 ${dlabel(first.date)}</span>`:''}</div></div>
   <div class="bars">${SKILLS.map(([k,n])=>{const v=Number(latest.skills?.[k]||0),b=first?Number(first.skills?.[k]||0):null,d=b!==null?v-b:0;return `<div class="bar"><span>${n}${d>0?` <span class="tag good">+${d}</span>`:''}</span><div class="track"><div class="fill" style="width:${v*20}%"></div></div><span class="v">${v}</span></div>`}).join('')}</div></div>`:empty('還沒有學習紀錄，寫下第一次評估後就會出現雷達圖','寫學習紀錄','new-log',`data-sid="${s.id}"`)}
-  <h2>學習歷程 <span class="tag mute">${items.length}</span></h2>
-  ${items.length?`<div class="timeline">${items.map(it=>it.k==='log'?`<div class="tl"><div class="d">${dlabel(it.d)}</div><div class="c" data-act="edit-log" data-id="${it.o.id}" role="button" tabindex="0">${it.o.focus?`<div class="lab">本堂重點</div><b>${esc(it.o.focus)}</b>`:''}${it.o.note?`<p>${esc(it.o.note)}</p>`:''}${it.o.homework?`<p><span class="lab">回家作業</span>　${esc(it.o.homework)}</p>`:''}</div></div>`:`<div class="tl att"><div class="d">${dlabel(it.d)}</div><div class="c" data-act="new-log" data-sid="${s.id}" data-lid="${it.o.id}" role="button" tabindex="0"><span class="lab">出席</span> ${esc(it.o.title||'課程')} ${esc(it.o.time||'')}<p class="hint" style="margin:2px 0 0">這堂還沒寫紀錄，點一下補寫</p></div></div>`).join('')}</div>`:'<div class="empty">上課並寫下紀錄後，學生的成長會依時間排在這裡</div>'}
+  <h2>上課歷程與筆記 <span class="tag mute">${items.length}</span></h2>
+  ${items.length?`<div class="timeline">${items.map(it=>it.k==='log'?logCard(s,it.o):lessonNoteCard(s,it.o)).join('')}</div>`:empty('每上完一堂課寫一段筆記，這裡就會留下完整的上課歷程','寫上課筆記','new-log',`data-sid="${s.id}"`)}
   ${s.notes?`<h2>備註</h2><div class="card" style="white-space:pre-wrap">${esc(s.notes)}</div>`:''}
   ${pkgs.length?`<h2>續約紀錄 <span class="tag mute">${pkgs.length}</span></h2><div class="list">${pkgs.map(txRow).join('')}</div>`:''}
   <h2>其他收費</h2><div class="list">${others.length?others.map(txRow).join(''):'<div class="empty">沒有其他收費紀錄</div>'}</div>`;
+}
+// 有筆記的那一堂
+function logCard(s,g){
+  const l=g.lessonId?byId('lessons',g.lessonId):null;
+  const att=l?(l.attendance||{})[s.id]:'';
+  const head=[l?esc(l.title||'課程'):'',l?esc(l.time||''):'',att&&att!=='present'?ATTLABEL[att]:''].filter(Boolean).join(' · ');
+  return `<div class="tl"><div class="d">${dlabel(g.date)}${head?`　<span class="sub2">${head}</span>`:''}</div>
+  <div class="c" data-act="edit-log" data-id="${g.id}" role="button" tabindex="0">
+  ${g.focus?`<div class="lab">今天教了什麼</div><b>${esc(g.focus)}</b>`:''}
+  ${g.note?`<p>${esc(g.note)}</p>`:''}
+  ${g.homework?`<p><span class="lab">回家作業</span>　${esc(g.homework)}</p>`:''}
+  ${l&&l.note?`<p><span class="lab">課程備註</span>　${esc(l.note)}</p>`:''}
+  ${!g.focus&&!g.note&&!g.homework&&!(l&&l.note)?'<p class="hint" style="margin:0">這筆筆記是空的，點一下補寫</p>':''}</div></div>`;
+}
+// 還沒寫筆記的那一堂
+function lessonNoteCard(s,l){
+  const att=(l.attendance||{})[s.id];
+  return `<div class="tl att"><div class="d">${dlabel(l.date)}　<span class="sub2">${esc(l.title||'課程')} ${esc(l.time||'')}</span></div>
+  <div class="c" data-act="new-log" data-sid="${s.id}" data-lid="${l.id}" role="button" tabindex="0">
+  <span class="lab">${att?ATTLABEL[att]:'還沒點名'}</span>${l.feeKind==='trial'?' · 體驗課':''}
+  ${l.note?`<p>${esc(l.note)}</p>`:''}
+  <p class="hint" style="margin:2px 0 0">這堂還沒寫筆記，點一下補寫</p></div></div>`;
 }
 function txRow(p){
   const [lab,dir]=PAYTYPES[p.type]||['其他','in'];
@@ -268,10 +290,10 @@ function vSettings(){
   <div class="f"><label for="st_loc">常用上課地點</label><input id="st_loc" name="defaultLocation" value="${esc(s.defaultLocation)}"></div>
   <div class="f"><label for="st_dur">預設課程長度</label><select id="st_dur" name="defaultDuration">${[30,60,90,120].map(m=>`<option value="${m}" ${Number(s.defaultDuration)===m?'selected':''}>${m} 分鐘</option>`).join('')}</select></div>
   <div class="f"><label for="st_mode">扣堂方式</label><select id="st_mode" name="deductMode"><option value="lesson" ${s.deductMode!=='hours'?'selected':''}>每堂扣 1 堂（不論時數）</option><option value="hours" ${s.deductMode==='hours'?'selected':''}>依時數扣（60 分鐘 = 1 堂，90 分鐘 = 1.5 堂）</option></select></div>
-  <div class="f"><span class="lb">課程價目表（每人每堂的價格）</span>
-  <p class="hint" style="margin:0">依上課人數訂價，體驗課可以另外設定。留空的格子會沿用人數較少的價格。</p>
-  ${Object.entries(PRICEKIND).map(([k,n])=>`<div class="pricerow"><span class="lb">${n}</span><div class="grid4">${HEADS.map(h=>`<div class="f"><label for="pr_${k}_${h}">${HEADLABEL[h]}</label><input id="pr_${k}_${h}" type="number" min="0" step="10" inputmode="numeric" name="price_${k}_${h}" value="${esc(s.prices[k][h]||'')}" placeholder="${unitPriceFor(k,h)}"></div>`).join('')}</div></div>`).join('')}
-  <p class="hint" style="margin:0">單堂制學生的待收款會依這張表計算（60 分鐘以外的課，若扣堂方式選「依時數」也會按比例換算）。學生資料若填了「個人專屬單價」，則以專屬單價為準；排課時也可以單獨指定「本堂每人價格」（例如場租較高的球場），那一堂就以課程上填的為準。</p></div>
+  <div class="f"><span class="lb">課程價目表（一堂課的總價）</span>
+  <p class="hint" style="margin:0">填的是整堂課的總收費，不是每人。一般課依 1對1～1對4，體驗課依 4～8 人。留空的格子會沿用相鄰人數的價格。</p>
+  ${Object.entries(PRICEKIND).map(([k,n])=>`<div class="pricerow"><span class="lb">${n}${k==='trial'?'（4 人起算）':''}</span><div class="priceg">${PRICEHEADS[k].map(h=>`<div class="f"><label for="pr_${k}_${h}">${headLabel(k,h)}</label><input id="pr_${k}_${h}" type="number" min="0" step="10" inputmode="numeric" name="price_${k}_${h}" value="${esc(s.prices[k][h]||'')}" placeholder="${totalPriceFor(k,h)}"></div>`).join('')}</div></div>`).join('')}
+  <p class="hint" style="margin:0">單堂制學生的待收款＝這堂總價 ÷ 上課人數（60 分鐘以外的課，若扣堂方式選「依時數」也會按比例換算）。學生資料若填了「個人專屬單價」，則以專屬單價為準；排課時也可以單獨指定「本堂總價」（例如場租較高的球場），那一堂就以課程上填的為準。</p></div>
   <div class="grid3"><div class="f"><label for="st_low">剩幾堂提醒續約</label><input id="st_low" type="number" min="0" name="lowAt" value="${esc(s.lowAt)}"></div>
   <div class="f"><label for="st_idle">幾天沒上課算流失</label><input id="st_idle" type="number" min="1" name="inactiveDays" value="${esc(s.inactiveDays)}"></div>
   <div class="f"><label for="st_exp">到期前幾天提醒</label><input id="st_exp" type="number" min="0" name="expiryWarnDays" value="${esc(s.expiryWarnDays)}"></div></div>
@@ -304,7 +326,7 @@ function buildMsg(){
     let txt=`【學習報告】${s.name}\n${s.goal?`目標：${s.goal}\n`:''}累計上課：${fmtNum(usedUnits(s.id))} 堂｜學習紀錄：${ls.length} 筆\n`;
     if(g){txt+=`\n技術評估（${dlabel(g.date)}）\n`+SKILLS.map(([k,n])=>{const v=Number(g.skills?.[k]||0),b=f?Number(f.skills?.[k]||0):null;return `${n}　${stars(v)}${b!==null&&v>b?`  ↑${v-b}`:''}`}).join('\n');if(g.homework)txt+=`\n\n下一階段練習：${g.homework}`}
     return (txt+`\n\n${sign}`).trim()}
-  if(t==='trial'){const l=byId('leads',ref);if(!l)return '';const st=SET(),tp=unitPriceFor('trial',1);
+  if(t==='trial'){const l=byId('leads',ref);if(!l)return '';const st=SET(),tp=Math.round(totalPriceFor('trial',PRICEHEADS.trial[0])/PRICEHEADS.trial[0]);
     return `${l.name} 您好！歡迎來體驗匹克球 🏓\n\n📅 ${l.trialDate?dlabel(l.trialDate):'（時間確認中）'}${l.trialTime?' '+l.trialTime:''}\n📍 ${st.defaultLocation||'（地點另行通知）'}\n${tp>0?`💰 體驗課 ${money(tp)}／人（多人同行另有優惠）\n`:''}\n請穿運動鞋、帶水，球拍現場可借用。\n有任何問題都可以直接回覆這則訊息！\n${sign}`.trim()}
   if(t==='custom')return `【${B} 公告】\n\n\n${sign}`;
   return '';

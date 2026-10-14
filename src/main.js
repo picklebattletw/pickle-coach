@@ -59,7 +59,7 @@ document.addEventListener('click',async e=>{
     case 'edit-lesson':lessonSheet(ds.id);break;
     case 'dup-lesson':{const l=byId('lessons',ds.id);if(l){const n=addDays(l.date,7);put('lessons',uid(),{...l,date:n,attendance:{},status:'scheduled',createdAt:Date.now()});closeSheet();toast(`已複製到 ${dlabel(n)}`)}break}
     case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);break;
-    case 'new-log':closeSheet();logSheet(null,{sid:ds.sid,lid:ds.lid});break;
+    case 'new-log':{const f=document.getElementById('sf');if(f&&ds.lid&&sheetSubmit)sheetSubmit(new FormData(f));closeSheet();logSheet(null,{sid:ds.sid,lid:ds.lid});break}
     case 'edit-log':logSheet(ds.id);break;
     case 'new-payment':paymentSheet(null,{sid:ds.sid,type:ds.type});break;
     case 'edit-payment':paymentSheet(ds.id);break;
@@ -101,13 +101,14 @@ document.addEventListener('change',e=>{
     SKILLS.forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
   if(t.id==='l_type'){const ti=document.getElementById('l_title');if(t.value==='group'&&ti.value==='一對一私人課')ti.value='初學團體班'}
   if(t.id==='p_t')togglePkg();
+  if(t.id==='s_bill')document.querySelectorAll('#sf .pkgnew').forEach(n=>n.hidden=t.value!=='package');
   if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
   if(t.id==='importFile'&&t.files[0]){importBackup(t.files[0]);t.value=''}
 });
 document.addEventListener('submit',e=>{
   e.preventDefault();
   if(e.target.id==='setForm'){const fd=new FormData(e.target);const num=k=>Number(fv(fd,k)||0);
-    const prices={};for(const k of Object.keys(PRICEKIND)){prices[k]={};for(const h of HEADS)prices[k][h]=Math.max(0,num(`price_${k}_${h}`))}
+    const prices={};for(const k of Object.keys(PRICEKIND)){prices[k]={};for(const h of PRICEHEADS[k])prices[k][h]=Math.max(0,num(`price_${k}_${h}`))}
     putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,singlePrice:prices.normal[1]||SET().singlePrice,deductMode:fv(fd,'deductMode'),lowAt:num('lowAt'),inactiveDays:num('inactiveDays')||21,expiryWarnDays:num('expiryWarnDays')});toast('設定已儲存');return}
   if(e.target.id==='sf'&&sheetSubmit)sheetSubmit(new FormData(e.target));
 });

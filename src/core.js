@@ -6,7 +6,7 @@ const CONFIG = {
   DRIVE_FOLDER: '匹克球教練本',
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.1.1'
+  VERSION: '1.2.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -16,11 +16,13 @@ const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
 const PAYTYPES={package:['課程包','in'],single:['單堂收費','in'],income:['其他收入','in'],venue:['場地費','out'],gear:['器材','out'],expense:['其他支出','out']};
 const PKGKIND={first:'首購',renew:'續約',addon:'加購'};
+const ATTLABEL={present:'出席',leave:'請假',noshow:'未到'};
 /* 價目表：每人每堂費用 = 課程性質（一般課／體驗課）× 上課人數（1對1～1對4） */
 const PRICEKIND={normal:'一般課',trial:'體驗課'};
-const HEADS=[1,2,3,4];
-const HEADLABEL={1:'1對1',2:'1對2',3:'1對3',4:'1對4'};
-const DEFAULT_PRICES={normal:{1:1000,2:700,3:600,4:500},trial:{1:600,2:500,3:450,4:400}};
+// 一般課依 1對1～1對4，體驗課依 4～8 人；填的都是「整堂總價」
+const PRICEHEADS={normal:[1,2,3,4],trial:[4,5,6,7,8]};
+const headLabel=(k,h)=>k==='trial'?`${h} 人`:`1對${h}`;
+const DEFAULT_PRICES={normal:{1:1000,2:1400,3:1800,4:2000},trial:{4:2000,5:2500,6:3000,7:3500,8:4000}};
 const METHODS=['現金','轉帳','LINE Pay','街口支付','其他'];
 const SOURCES=['朋友介紹','Instagram','Facebook','LINE 社群','體驗課','球場現場','其他'];
 const LEADST={inquiry:['詢問中','mute'],trial:['已約體驗','ball'],won:['已成交','good'],lost:['未成交','bad']};
@@ -55,7 +57,7 @@ function fillSettings(s){
   const base=Number(o.singlePrice)>0?Number(o.singlePrice):DEFAULT_PRICES.normal[1];
   const src=o.prices&&typeof o.prices==='object'?o.prices:{normal:{...DEFAULT_PRICES.normal,1:base},trial:{...DEFAULT_PRICES.trial}};
   o.prices={};
-  for(const k of Object.keys(PRICEKIND)){o.prices[k]={};for(const n of HEADS){const v=Number(src[k]?.[n]||0);o.prices[k][n]=v>0?Math.round(v):0}}
+  for(const k of Object.keys(PRICEKIND)){o.prices[k]={};for(const n of PRICEHEADS[k]){const v=Number(src[k]?.[n]||0);o.prices[k][n]=v>0?Math.round(v):0}}
   return o;
 }
 function emptyData(){return {schema:1,settings:fillSettings(),students:{},lessons:{},payments:{},logs:{},leads:{}}}
@@ -92,16 +94,28 @@ const unitsOf=l=>SET().deductMode==='hours'?Number(l.duration||60)/60:1;
 const feeKindOf=l=>l&&l.feeKind==='trial'?'trial':'normal';
 // 收費人數：有自己填就用填的（體驗課常有還沒建檔的人），否則用這堂的學生人數
 const headsOf=l=>{const m=Math.round(Number((l&&l.payHeads)||0));return m>0?Math.min(m,99):Math.max(1,((l&&l.studentIds)||[]).length)};
-function unitPriceFor(kind,heads){
-  const st=SET(),P=st.prices||{},k=PRICEKIND[kind]?kind:'normal',h=Math.min(Math.max(Math.round(Number(heads)||1),1),4);
-  const pick=kk=>{for(let i=h;i>=1;i--){const v=Number(P[kk]?.[i]||0);if(v>0)return v}return 0};
-  return pick(k)||pick('normal')||Number(st.singlePrice||0);
+// 計價用的人數：夾在該課程性質的級距內（體驗課最少以 4 人計）
+const billHeads=(l)=>{const hs=PRICEHEADS[feeKindOf(l)];return Math.min(Math.max(headsOf(l),hs[0]),hs[hs.length-1])};
+// 查價目表，回傳「整堂總價」
+function totalPriceFor(kind,heads){
+  const st=SET(),k=PRICEKIND[kind]?kind:'normal',hs=PRICEHEADS[k],P=(st.prices||{})[k]||{};
+  const h=Math.min(Math.max(Math.round(Number(heads)||hs[0]),hs[0]),hs[hs.length-1]),i=hs.indexOf(h);
+  for(let j=i;j>=0;j--){const v=Number(P[hs[j]]||0);if(v>0)return v}       // 先往人數少的找
+  for(let j=i+1;j<hs.length;j++){const v=Number(P[hs[j]]||0);if(v>0)return v} // 再往人數多的找
+  return Number(st.singlePrice||0);
 }
 // 這堂每人的價格：課程自己填的價格最優先（不同場地／特殊情況），否則查價目表
-const lessonUnitPrice=l=>Number(l?.unitPrice)>0?Number(l.unitPrice):unitPriceFor(feeKindOf(l),headsOf(l));
-// 這位學生這堂應收：課程自訂價 > 學生專屬單價 > 價目表
-const studentFee=(l,s)=>Math.round((Number(l?.unitPrice)>0?Number(l.unitPrice):Number(s?.price)>0?Number(s.price):lessonUnitPrice(l))*unitsOf(l));
-const lessonFee=l=>Math.round(lessonUnitPrice(l)*unitsOf(l))*headsOf(l);  // 整堂定價
+// 這堂自己填的總價（0＝沒填）；unitPrice 是舊版的「每人價格」，換算回總價
+const ownTotal=l=>Number(l?.feeTotal)>0?Number(l.feeTotal):Number(l?.unitPrice)>0?Number(l.unitPrice)*headsOf(l):0;
+const lessonFee=l=>Math.round((ownTotal(l)||totalPriceFor(feeKindOf(l),billHeads(l)))*unitsOf(l)); // 整堂總價
+// 這位學生這堂應收：課程自訂總價 > 學生專屬單價 > 價目表總價 ÷ 人數
+function studentFee(l,s){
+  const own=ownTotal(l);
+  if(own>0)return Math.round(own*unitsOf(l)/Math.max(1,headsOf(l)));
+  if(Number(s?.price)>0)return Math.round(Number(s.price)*unitsOf(l));
+  return Math.round(totalPriceFor(feeKindOf(l),billHeads(l))*unitsOf(l)/Math.max(1,headsOf(l)));
+}
+const perHead=l=>Math.round(lessonFee(l)/Math.max(1,headsOf(l)));          // 平均每人
 const counted=(l,sid)=>l.status!=='cancelled'&&l.deduct!==false&&['present','noshow'].includes((l.attendance||{})[sid]);
 const lessonsOf=sid=>all('lessons').filter(l=>(l.studentIds||[]).includes(sid));
 const packagesOf=sid=>all('payments').filter(p=>p.studentId===sid&&p.type==='package').sort((a,b)=>(a.date||'').localeCompare(b.date||''));

@@ -13,7 +13,7 @@ function studentOptions(sel,allowNone){return (allowNone?`<option value="">（�
 const srcList=()=>`<datalist id="srcs">${[...new Set([...SOURCES,...all('students').map(s=>s.source),...all('leads').map(l=>l.source)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist>`;
 
 function studentSheet(id,preset={}){
-  const s=id?byId('students',id):{status:'active',billing:'package',color:COLORS[all('students').length%COLORS.length],startDate:today(),...preset};
+  const s=id?byId('students',id):{status:'active',billing:'perLesson',color:COLORS[all('students').length%COLORS.length],startDate:today(),...preset};
   const tags=[...new Set(all('students').flatMap(x=>x.tags||[]))];
   openSheet(id?'編輯學生':'新增學生',`
   <div class="f"><label for="s_name">姓名 *</label><input id="s_name" name="name" required value="${esc(s.name)}"></div>
@@ -24,10 +24,10 @@ function studentSheet(id,preset={}){
   <div class="f"><label for="s_goal">學習目標</label><input id="s_goal" name="goal" placeholder="例：三個月內穩定打 3.0 雙打" value="${esc(s.goal)}"></div>
   <div class="f"><label for="s_tags">標籤（用逗號分隔）</label><input id="s_tags" name="tags" list="tagl" value="${esc((s.tags||[]).join(', '))}" placeholder="例：週二班, 準備比賽"><datalist id="tagl">${tags.map(t=>`<option>${esc(t)}</option>`).join('')}</datalist></div>
   <div class="f"><span class="lb">代表色</span><div class="swatches">${COLORS.map(c=>`<label><input type="radio" name="color" value="${c}" ${s.color===c?'checked':''} aria-label="顏色 ${c}"><span style="background:${c}"></span></label>`).join('')}</div></div>
-  <div class="grid2"><div class="f"><label for="s_bill">收費方式</label><select id="s_bill" name="billing"><option value="package" ${s.billing!=='perLesson'?'selected':''}>預購課程包</option><option value="perLesson" ${s.billing==='perLesson'?'selected':''}>單堂制（上一堂收一堂）</option></select></div>
+  <div class="grid2"><div class="f"><label for="s_bill">收費方式</label><select id="s_bill" name="billing"><option value="perLesson" ${s.billing!=='package'?'selected':''}>單堂制（上一堂收一堂）</option><option value="package" ${s.billing==='package'?'selected':''}>預購課程包</option></select></div>
   <div class="f"><label for="s_price">個人專屬單價（選填）</label><input id="s_price" type="number" min="0" name="price" value="${esc(s.price||'')}" placeholder="留空＝依人數價目表"></div></div>
   <p class="hint">單堂制學生的待收款，預設依「設定 › 課程價目表」用上課人數計算；填了專屬單價就一律用這個價格。排課時若單獨填了「本堂每人價格」，那一堂以課程上填的為準。</p>
-  ${!id?`<div class="card" style="margin-top:12px"><span class="lab">同時登記購買課程包（選填）</span><div class="grid3"><div class="f"><label for="s_pn">堂數</label><input id="s_pn" type="number" min="0" name="pkgSessions" placeholder="10"></div><div class="f"><label for="s_pa">金額</label><input id="s_pa" type="number" min="0" name="pkgAmount"></div><div class="f"><label for="s_pe">到期日</label><input id="s_pe" type="date" name="pkgExpiry"></div></div></div>`:''}
+  ${!id?`<div class="card pkgnew" style="margin-top:12px" ${s.billing==='package'?'':'hidden'}><span class="lab">同時登記購買課程包（選填）</span><div class="grid3"><div class="f"><label for="s_pn">堂數</label><input id="s_pn" type="number" min="0" name="pkgSessions" placeholder="10"></div><div class="f"><label for="s_pa">金額</label><input id="s_pa" type="number" min="0" name="pkgAmount"></div><div class="f"><label for="s_pe">到期日</label><input id="s_pe" type="date" name="pkgExpiry"></div></div></div>`:''}
   <div class="grid2"><div class="f"><label for="s_start">開始上課日</label><input id="s_start" type="date" name="startDate" value="${esc(s.startDate)}"></div>
   <div class="f"><label for="s_st">狀態</label><select id="s_st" name="status"><option value="active" ${(s.status||'active')==='active'?'selected':''}>上課中</option><option value="paused" ${s.status==='paused'?'selected':''}>暫停</option><option value="archived" ${s.status==='archived'?'selected':''}>封存（不再上課）</option></select></div></div>
   <div class="f"><label for="s_notes">備註（慣用手、傷病、習慣等）</label><textarea id="s_notes" name="notes">${esc(s.notes)}</textarea></div>
@@ -46,7 +46,7 @@ function studentSheet(id,preset={}){
 
 function lessonSheet(id,preset={}){
   const st=SET();
-  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,type:'private',capacity:4,feeKind:'normal',payHeads:0,unitPrice:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'一對一私人課',location:st.defaultLocation||''};
+  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,type:'private',capacity:4,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'一對一私人課',location:st.defaultLocation||''};
   const att=l.attendance||{};
   const locs=[...new Set([st.defaultLocation,...all('lessons').map(x=>x.location)].filter(Boolean))];
   const studs=all('students').filter(s=>(s.status||'active')==='active'||(l.studentIds||[]).includes(s.id)).sort(byName);
@@ -61,18 +61,20 @@ function lessonSheet(id,preset={}){
   <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}</div>
   <div class="grid3"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
   <div class="f"><label for="l_heads">收費人數</label><input id="l_heads" type="number" min="0" max="20" step="1" inputmode="numeric" name="payHeads" value="${esc(l.payHeads||'')}" placeholder="依人數"></div>
-  <div class="f"><label for="l_price">本堂每人價格</label><input id="l_price" type="number" min="0" step="10" inputmode="numeric" name="unitPrice" value="${esc(l.unitPrice||'')}" placeholder="依價目表"></div></div>
+  <div class="f"><label for="l_price">本堂總價</label><input id="l_price" type="number" min="0" step="10" inputmode="numeric" name="feeTotal" value="${esc(l.feeTotal||'')}" placeholder="依價目表"></div></div>
   <p class="hint" id="l_feeinfo"></p>
   <label class="check"><input type="checkbox" name="deduct" ${l.deduct!==false?'checked':''}> 出席或未到時扣堂（課程包）／計費（單堂制）</label>
   ${!id?`<div class="f"><label for="l_rep">每週重複</label><select id="l_rep" name="repeat">${[1,2,4,6,8,10,12].map(n=>`<option value="${n}">${n===1?'不重複':`共 ${n} 週`}</option>`).join('')}</select></div>`:''}
-  ${id&&(l.studentIds||[]).length?`<div class="f"><span class="lb">點名</span>${l.studentIds.map(sid=>`<div class="att"><b>${esc(sname(sid))}</b><div class="seg">${[['present','出席'],['leave','請假'],['noshow','未到']].map(([v,n])=>`<label><input type="radio" name="att_${sid}" value="${v}" ${att[sid]===v?'checked':''}><span>${n}</span></label>`).join('')}</div></div>`).join('')}<p class="hint">請假不扣堂；未到會扣堂。${st.deductMode==='hours'?`這堂依時數扣 ${fmtNum(Number(l.duration||60)/60)} 堂。`:''}</p>${l.studentIds.length>1?'<button type="button" class="btn sm" data-act="all-present" style="margin-top:8px">全部出席</button>':''}</div>`:''}
+  ${id&&(l.studentIds||[]).length?`<div class="f"><span class="lb">點名</span>${l.studentIds.map(sid=>`<div class="att"><b>${esc(sname(sid))}</b><div class="seg">${[['present','出席'],['leave','請假'],['noshow','未到']].map(([v,n])=>`<label><input type="radio" name="att_${sid}" value="${v}" ${att[sid]===v?'checked':''}><span>${n}</span></label>`).join('')}</div></div>`).join('')}<p class="hint">請假不扣堂；未到會扣堂。${st.deductMode==='hours'?`這堂依時數扣 ${fmtNum(Number(l.duration||60)/60)} 堂。`:''}</p>${l.studentIds.length>1?'<button type="button" class="btn sm" data-act="all-present" style="margin-top:8px">全部出席</button>':''}
+  <div class="btns" style="margin-top:8px">${l.studentIds.map(sid=>`<button type="button" class="btn sm" data-act="new-log" data-sid="${sid}" data-lid="${id}">✎ ${esc(sname(sid))}的筆記</button>`).join('')}</div>
+  <p class="hint">按筆記會先把這堂的點名存起來，再開筆記。</p></div>`:''}
   ${id?`<div class="f"><label for="l_st">狀態</label><select id="l_st" name="status"><option value="scheduled" ${l.status==='scheduled'?'selected':''}>已排定</option><option value="done" ${l.status==='done'?'selected':''}>已完成</option><option value="cancelled" ${l.status==='cancelled'?'selected':''}>已取消</option></select></div>`:''}
   <div class="f"><label for="l_note">備註</label><textarea id="l_note" name="note">${esc(l.note)}</textarea></div>
   <div class="actions"><button class="btn pri grow">儲存</button>${delBtn('lessons',id)}</div>
-  ${id?`<div class="actions" style="margin-top:8px"><button type="button" class="btn line" data-act="remind-lesson" data-id="${id}">傳上課提醒</button><button type="button" class="btn" data-act="ics" data-id="${id}">加入手機行事曆</button>${(l.studentIds||[]).length===1?`<button type="button" class="btn" data-act="new-log" data-sid="${l.studentIds[0]}" data-lid="${id}">寫學習紀錄</button>`:''}<button type="button" class="btn" data-act="dup-lesson" data-id="${id}">複製到下週</button></div>`:''}`,
+  ${id?`<div class="actions" style="margin-top:8px"><button type="button" class="btn line" data-act="remind-lesson" data-id="${id}">傳上課提醒</button><button type="button" class="btn" data-act="ics" data-id="${id}">加入手機行事曆</button><button type="button" class="btn" data-act="dup-lesson" data-id="${id}">複製到下週</button></div>`:''}`,
   fd=>{
     const sids=fd.getAll('sids').map(String);
-    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title')||'匹克球課',type:fv(fd,'type'),capacity:Number(fv(fd,'capacity')||4),location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),unitPrice:Math.max(0,Math.round(Number(fv(fd,'unitPrice')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
+    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title')||'匹克球課',type:fv(fd,'type'),capacity:Number(fv(fd,'capacity')||4),location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),feeTotal:Math.max(0,Math.round(Number(fv(fd,'feeTotal')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
     if(!o.date||!o.time)return toast('請填寫日期和時間');
     if(o.type==='group'&&sids.length>o.capacity)return toast(`已選 ${sids.length} 位，超過名額 ${o.capacity}`);
     const clash=all('lessons').find(x=>x.id!==id&&x.date===o.date&&x.status!=='cancelled'&&toMin(x.time)<toMin(o.time)+o.duration&&toMin(o.time)<toMin(x.time)+Number(x.duration||60));
@@ -92,9 +94,11 @@ function feeInfo(){
   const manual=Math.round(Number(document.getElementById('l_heads')?.value||0));
   const n=manual>0?manual:Math.max(1,f.querySelectorAll('input[name="sids"]:checked').length);
   const own=Math.max(0,Math.round(Number(document.getElementById('l_price')?.value||0)));
-  const l={feeKind:kind,payHeads:n,unitPrice:own,duration:Number(document.getElementById('l_dur')?.value||60)};
-  const per=Math.round(lessonUnitPrice(l)*unitsOf(l));
-  box.textContent=`${PRICEKIND[kind]}${n>4?`${n} 人`:HEADLABEL[n]}：每人 ${money(per)}，整堂共 ${money(per*n)}。${own>0?'這堂是自訂價格，不受價目表影響。':'價格可到「更多 › 設定 › 課程價目表」調整，或在上面直接填這堂的價格。'}`;
+  const l={feeKind:kind,payHeads:n,feeTotal:own,duration:Number(document.getElementById('l_dur')?.value||60)};
+  const bh=billHeads(l),tot=lessonFee(l);
+  box.textContent=`${PRICEKIND[kind]} ${headLabel(kind,bh)}：整堂 ${money(tot)}，平均每人 ${money(perHead(l))}。`
+    +(own>0?'這堂是自訂總價，不受價目表影響。':bh!==n?`（${PRICEKIND[kind]}價目表最少 ${PRICEHEADS[kind][0]} 人起算）`:'')
+    +(own>0?'':'價格可到「更多 › 設定 › 課程價目表」調整，或在上面直接填這堂的總價。');
 }
 
 function logSheet(id,preset={}){
@@ -105,20 +109,20 @@ function logSheet(id,preset={}){
   const sk=g?.skills||prev?.skills||Object.fromEntries(SKILLS.map(([k])=>[k,2]));
   const lid=g?.lessonId||preset.lid||'';
   const date=g?.date||(lid&&byId('lessons',lid)?.date)||today();
-  openSheet(id?'編輯學習紀錄':'寫學習紀錄',`
+  openSheet(id?'編輯上課筆記':'寫上課筆記',`
   <div class="grid2"><div class="f"><label for="g_s">學生</label><select id="g_s" name="studentId">${studentOptions(sid)}</select></div>
   <div class="f"><label for="g_d">日期</label><input id="g_d" type="date" name="date" value="${esc(date)}"></div></div>
   <div class="f"><label for="g_l">對應課程</label><select id="g_l" name="lessonId">${lessonOptsHtml(sid,lid)}</select></div>
-  <div class="f"><label for="g_f">本堂重點</label><input id="g_f" name="focus" value="${esc(g?.focus)}" placeholder="例：第三拍吊球落點、廚房區耐心"></div>
-  <div class="f"><span class="lb">技術評分（1 入門 – 5 熟練）${prev?'　已帶入上次分數':''}</span>
-  ${SKILLS.map(([k,n])=>`<div class="sk"><label for="sk_${k}">${n}</label><input type="range" id="sk_${k}" name="sk_${k}" min="1" max="5" step="1" value="${Number(sk[k]||2)}" data-out="o_${k}"><output id="o_${k}">${Number(sk[k]||2)}</output></div>`).join('')}</div>
-  <div class="f"><label for="g_n">教練觀察</label><textarea id="g_n" name="note" placeholder="做得好的地方、需要修正的動作">${esc(g?.note)}</textarea></div>
+  <div class="f"><label for="g_f">今天教了什麼</label><input id="g_f" name="focus" value="${esc(g?.focus)}" placeholder="例：第三拍吊球落點、廚房區耐心"></div>
+  <div class="f"><label for="g_n">上課狀況／觀察</label><textarea id="g_n" name="note" placeholder="做得好的地方、需要修正的動作、今天的狀態">${esc(g?.note)}</textarea></div>
   <div class="f"><label for="g_h">回家作業</label><input id="g_h" name="homework" value="${esc(g?.homework)}" placeholder="例：對牆 dink 每天 100 下"></div>
+  <details class="fold" ${prev?'':'open'}><summary>技術評分（選填，1 入門 – 5 熟練）${prev?'　已帶入上次分數':''}</summary>
+  ${SKILLS.map(([k,n])=>`<div class="sk"><label for="sk_${k}">${n}</label><input type="range" id="sk_${k}" name="sk_${k}" min="1" max="5" step="1" value="${Number(sk[k]||2)}" data-out="o_${k}"><output id="o_${k}">${Number(sk[k]||2)}</output></div>`).join('')}</details>
   <div class="actions"><button class="btn pri grow">儲存</button>${id?`<button type="button" class="btn line" data-act="feedback" data-id="${id}">傳回饋給學生</button>`:''}${delBtn('logs',id)}</div>`,
   fd=>{const skills=Object.fromEntries(SKILLS.map(([k])=>[k,Number(fd.get('sk_'+k)||1)]));
     const o={...(g||{}),studentId:fv(fd,'studentId'),date:fv(fd,'date')||today(),lessonId:fv(fd,'lessonId'),focus:fv(fd,'focus'),note:fv(fd,'note'),homework:fv(fd,'homework'),skills,createdAt:g?.createdAt||Date.now()};
     const nid=id||uid();put('logs',nid,o);closeSheet();ui.ntype='feedback';ui.nref=nid;
-    toast('已儲存，可以到學生頁傳回饋');if(!id){ui.tab='stu';ui.sid=o.studentId;ui.sub=null;render()}});
+    toast('已儲存筆記');if(!id){ui.tab='stu';ui.sid=o.studentId;ui.sub=null;render()}});
 }
 function lessonOptsHtml(sid,sel){return '<option value="">（不指定）</option>'+lessonsOf(sid).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,20).map(l=>`<option value="${l.id}" ${l.id===sel?'selected':''}>${dlabel(l.date)} ${l.time} ${esc(l.title||'')}</option>`).join('')}
 
@@ -192,14 +196,14 @@ function importBackup(file){
 function seedDemo(){
   const t=today(),ws=weekStart(t),now=Date.now();let k=0;const mk=o=>({...o,createdAt:now+(k++),updatedAt:now});
   D=emptyData();D.settings=fillSettings({coachName:'教練',brand:'範例匹克球教室',defaultLocation:'大安運動中心 B2',updatedAt:now});
-  const S=(id,o)=>D.students[id]={id,status:'active',billing:'package',...mk(o)};
+  const S=(id,o)=>D.students[id]={id,status:'active',billing:'perLesson',...mk(o)};
   S('s1',{name:'範例・王小明',level:'2.5',source:'朋友介紹',goal:'年底前穩定打 3.0 雙打',tags:['週二班'],color:COLORS[0],startDate:addDays(t,-45),phone:'0912-000-111',lineId:'xiaoming_pb',notes:'右手持拍，反手偏弱'});
   S('s2',{name:'範例・陳美玲',level:'初學',source:'Instagram',goal:'學會規則，能和朋友打休閒賽',tags:['週二班'],color:COLORS[1],startDate:addDays(t,-25)});
-  S('s3',{name:'範例・林志豪',level:'3.0',source:'體驗課',goal:'參加下個月業餘賽',tags:['準備比賽'],color:COLORS[2],startDate:addDays(t,-60),notes:'網球轉匹克球，抽球習慣過重'});
+  S('s3',{name:'範例・林志豪',level:'3.0',source:'體驗課',goal:'參加下個月業餘賽',tags:['準備比賽'],color:COLORS[2],billing:'package',startDate:addDays(t,-60),notes:'網球轉匹克球，抽球習慣過重'});
   S('s4',{name:'範例・張雅婷',level:'2.0',source:'LINE 社群',goal:'增加運動量',color:COLORS[4],billing:'perLesson',startDate:addDays(t,-20)});
   const P=(id,o)=>D.payments[id]={id,...mk(o)};
-  P('p1',{type:'package',kind:'first',studentId:'s1',amount:12000,sessions:10,date:addDays(t,-45),expiry:addDays(t,75),method:'轉帳',note:'10 堂方案'});
-  P('p2',{type:'package',kind:'first',studentId:'s2',amount:6500,sessions:5,date:addDays(t,-25),expiry:addDays(t,10),method:'LINE Pay',note:'5 堂體驗方案'});
+  P('p1',{type:'single',studentId:'s1',amount:4000,date:addDays(t,-21),method:'轉帳',note:'4 堂課費'});
+  P('p2',{type:'single',studentId:'s2',amount:2000,date:addDays(t,-14),method:'LINE Pay',note:'2 堂課費'});
   P('p3',{type:'package',kind:'renew',studentId:'s3',amount:12000,sessions:10,date:addDays(t,-12),method:'現金',note:'第二期'});
   P('p3a',{type:'package',kind:'first',studentId:'s3',amount:12000,sessions:10,date:addDays(t,-60),method:'現金',note:'10 堂方案'});
   P('p4',{type:'venue',amount:1600,date:addDays(t,-8),method:'轉帳',note:'場地租借 4 小時'});
@@ -215,14 +219,15 @@ function seedDemo(){
   L('t2',t,'20:00',{title:'初學團體班',type:'group',duration:90,studentIds:['s1','s2']});
   L('u1',addDays(t,2),'10:00',{studentIds:['s1'],location:'青年公園匹克球場'});
   L('u2',addDays(ws,12),'20:00',{title:'初學團體班',type:'group',duration:90,studentIds:['s1','s4']});
-  L('tr1',addDays(t,-4),'10:00',{title:'體驗課',feeKind:'trial',payHeads:2,studentIds:[],status:'done',note:'黃先生帶朋友一起來體驗'});
-  L('tr2',addDays(t,3),'10:00',{title:'體驗課',feeKind:'trial',payHeads:1,studentIds:[],note:'範例・黃先生，完全新手'});
+  L('tr1',addDays(t,-4),'10:00',{title:'體驗課',feeKind:'trial',payHeads:6,duration:90,studentIds:[],status:'done',note:'社團揪團體驗，6 人'});
+  L('tr2',addDays(t,3),'10:00',{title:'體驗課',feeKind:'trial',payHeads:4,duration:90,studentIds:[],note:'範例・黃先生 揪 4 人'});
   const G=(id,o)=>D.logs[id]={id,...mk(o)};
   G('l1',{studentId:'s1',date:addDays(t,-40),focus:'首次能力評估',note:'正手穩定，反手容易下網；站位太靠後，常停在無人區。',homework:'對牆反手推擋每天 50 下',skills:{serve:3,return:2,dink:2,drop:1,drive:3,volley:2,footwork:2,strategy:2}});
   G('l2',{studentId:'s1',date:addDays(t,-5),lessonId:'w11',focus:'第三拍吊球落點、上網時機',note:'吊球成功率從三成提升到六成，接發後能主動上網。反手 dink 還要放鬆手腕。',homework:'和球友練 dink 對打 10 分鐘，不急著攻擊',skills:{serve:3,return:3,dink:3,drop:3,drive:3,volley:3,footwork:3,strategy:3}});
   G('l3',{studentId:'s2',date:addDays(t,-21),lessonId:'m1',focus:'握拍與下手發球',note:'發球已能過網並大致落在區內，記分規則還在熟悉。',homework:'看一場雙打比賽，試著自己喊分',skills:{serve:2,return:2,dink:1,drop:1,drive:1,volley:1,footwork:2,strategy:1}});
   G('l4',{studentId:'s3',date:addDays(t,-50),focus:'把網球抽球改成控制型擊球',note:'力量足但太多平抽，廚房區耐心不夠。',homework:'三拍內不殺球，只 dink',skills:{serve:4,return:3,dink:2,drop:2,drive:5,volley:3,footwork:4,strategy:2}});
   G('l5',{studentId:'s3',date:addDays(t,-8),focus:'重置球與比賽節奏',note:'被壓制時能用 reset 回到廚房線，dink 對抗能撐 15 拍以上。',homework:'比賽中每局至少嘗試 3 次第三拍吊球',skills:{serve:4,return:4,dink:4,drop:3,drive:5,volley:4,footwork:4,strategy:3}});
+  G('l6',{studentId:'s2',date:addDays(t,-7),lessonId:'g1',focus:'團體班：發球輪轉與記分',note:'今天比較累，後半節注意力下降，但記分已經能自己喊。',homework:'無，先休息'});
   const Ld=(id,o)=>D.leads[id]={id,...mk(o)};
   Ld('d1',{name:'範例・黃先生',source:'Instagram',contact:'LINE: huang88',status:'trial',date:addDays(t,-3),trialDate:addDays(t,3),trialTime:'10:00',note:'完全新手，想週末上課'});
   Ld('d2',{name:'範例・李小姐',source:'朋友介紹',status:'inquiry',date:addDays(t,-1),note:'問團體班價格'});
