@@ -60,7 +60,8 @@ document.addEventListener('click',async e=>{
     case 'new-lesson':lessonSheet(null,{d:ds.d,sid:ds.sid});break;
     case 'edit-lesson':lessonSheet(ds.id);break;
     case 'dup-lesson':{const f=document.getElementById('sf');if(f&&sheetSubmit)sheetSubmit(new FormData(f));dupSheet(ds.id);break}
-    case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);break;
+    case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);document.querySelectorAll('#sf input[name^=paid_]').forEach(c=>c.disabled=false);break;
+    case 'all-paid':document.querySelectorAll('#sf input[name^=paid_]:not([disabled])').forEach(c=>c.checked=true);break;
     case 'rate':closeSheet();logSheet(null,{sid:ds.sid,rate:true});break;
     case 'new-log':{const f=document.getElementById('sf');if(f&&ds.lid&&sheetSubmit)sheetSubmit(new FormData(f));closeSheet();logSheet(null,{sid:ds.sid,lid:ds.lid});break}
     case 'edit-log':logSheet(ds.id);break;
@@ -106,6 +107,9 @@ document.addEventListener('change',e=>{
   if(t.id==='g_s'){document.getElementById('g_l').innerHTML=lessonOptsHtml(t.value,'');const pv=logsOf(t.value)[0];
     skillList().forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
   if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
+  // 改點名時，連動「已收費」能不能勾（請假就不能收費）
+  if(t.name&&t.name.startsWith('att_')){const cb=document.querySelector(`#sf [name="paid_${t.name.slice(4)}"]`);
+    if(cb){const on=['present','noshow'].includes(t.value);cb.disabled=!on;if(!on)cb.checked=false}}
   if(t.id==='importFile'&&t.files[0]){importBackup(t.files[0]);t.value=''}
 });
 document.addEventListener('submit',e=>{

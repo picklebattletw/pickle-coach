@@ -27,6 +27,8 @@ function banners(){
 function empty(msg,btn,act,extra=''){return `<div class="empty"><p>${msg}</p>${btn?`<button class="btn pri" data-act="${act}" ${extra}>${btn}</button>`:''}</div>`}
 function stLabel(l){
   if(l.status==='cancelled')return '<span class="tag mute">已取消</span>';
+  const ch=(l.studentIds||[]).filter(sid=>counted(l,sid));
+  if(ch.length&&ch.every(sid=>lessonPayOf(l.id,sid)))return '<span class="tag good">已收費</span>';
   if(l.status==='done')return '<span class="tag good">已完成</span>';
   return '';
 }
@@ -79,7 +81,7 @@ function vToday(){
   <div class="stats"><div class="stat"><span>本月收入</span><b>${money(inc)}</b></div><div class="stat"><span>本月支出</span><b>${money(exp)}</b></div><div class="stat"><span>本月淨額</span><b>${money(inc-exp)}</b></div></div>
   <h2>今日課表 <button class="btn sm more" data-act="goto" data-tab="cal">看整週</button></h2>
   <div class="list">${ls.length?ls.map(lessonCard).join(''):empty('今天沒有排課','排一堂課','new-lesson')}</div>
-  ${pending.length?`<h2>還沒點名的課 <span class="tag warn">${pending.length}</span></h2><div class="list">${pending.map(lessonCard).join('')}</div><p class="hint">點進去標記出席，才會算進收費。</p>`:''}
+  ${pending.length?`<h2>還沒點名的課 <span class="tag warn">${pending.length}</span></h2><div class="list">${pending.map(lessonCard).join('')}</div><p class="hint">點進去標記出席，順便勾「已收」就完成收費了。</p>`:''}
   <h2>需要處理 ${al.length?`<span class="tag warn">${groupAlerts(al).length}</span>`:''}</h2>
   <div class="list">${al.length?groupAlerts(al).slice(0,12).map(g=>stuRow(g.s,`<div class="chips" style="justify-content:flex-end;max-width:110px">${g.items.map(a=>`<span class="tag ${a.tag}">${{owe:'待收款',idle:'流失風險'}[a.kind]}</span>`).join('')}</div>`,g.items.map(a=>esc(a.txt)).join('<br>'))).join(''):'<div class="empty">目前沒有待收款、也沒有太久沒上課的學生</div>'}</div>`;
 }

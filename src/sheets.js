@@ -59,7 +59,9 @@ function lessonSheet(id,preset={}){
   <p class="hint" id="l_feeinfo"></p>
   <label class="check"><input type="checkbox" name="deduct" ${l.deduct!==false?'checked':''}> 出席或未到時計入收費</label>
   ${!id?`<div class="f"><label for="l_rep">每週重複</label><select id="l_rep" name="repeat">${[1,2,4,6,8,10,12].map(n=>`<option value="${n}">${n===1?'不重複':`共 ${n} 週`}</option>`).join('')}</select></div>`:''}
-  ${id&&(l.studentIds||[]).length?`<div class="f"><span class="lb">點名</span>${l.studentIds.map(sid=>`<div class="att"><b>${esc(sname(sid))}</b><div class="seg">${[['present','出席'],['leave','請假'],['noshow','未到']].map(([v,n])=>`<label><input type="radio" name="att_${sid}" value="${v}" ${att[sid]===v?'checked':''}><span>${n}</span></label>`).join('')}</div></div>`).join('')}<p class="hint">請假不計費；未到仍會計費。</p>${l.studentIds.length>1?'<button type="button" class="btn sm" data-act="all-present" style="margin-top:8px">全部出席</button>':''}
+  ${id&&(l.studentIds||[]).length?`<div class="f"><span class="lb">點名</span>${l.studentIds.map(sid=>{const chg=['present','noshow'].includes(att[sid]);
+    return `<div class="att"><b>${esc(sname(sid))}</b><div class="seg">${[['present','出席'],['leave','請假'],['noshow','未到']].map(([v,n])=>`<label><input type="radio" name="att_${sid}" value="${v}" ${att[sid]===v?'checked':''}><span>${n}</span></label>`).join('')}</div>
+    <label class="paid"><input type="checkbox" name="paid_${sid}" ${lessonPayOf(id,sid)?'checked':''} ${chg?'':'disabled'}> 已收 ${money(studentFee(l,byId('students',sid)))}</label></div>`}).join('')}<p class="hint">請假不計費；未到仍會計費。勾「已收」儲存後會自動在收支記上一筆，待收款就歸零了。</p>${l.studentIds.length>1?'<div class="btns" style="margin-top:8px"><button type="button" class="btn sm" data-act="all-present">全部出席</button><button type="button" class="btn sm" data-act="all-paid">全部已收</button></div>':''}
   <div class="btns" style="margin-top:8px">${l.studentIds.map(sid=>`<button type="button" class="btn sm" data-act="new-log" data-sid="${sid}" data-lid="${id}">✎ ${esc(sname(sid))}的筆記</button>`).join('')}</div>
   <p class="hint">按筆記會先把這堂的點名存起來，再開筆記。</p></div>`:''}
   ${id?`<div class="f"><label for="l_st">狀態</label><select id="l_st" name="status"><option value="scheduled" ${l.status==='scheduled'?'selected':''}>已排定</option><option value="done" ${l.status==='done'?'selected':''}>已完成</option><option value="cancelled" ${l.status==='cancelled'?'selected':''}>已取消</option></select></div>`:''}
@@ -73,7 +75,15 @@ function lessonSheet(id,preset={}){
     const clash=all('lessons').find(x=>x.id!==id&&x.date===o.date&&x.status!=='cancelled'&&toMin(x.time)<toMin(o.time)+o.duration&&toMin(o.time)<toMin(x.time)+Number(x.duration||60));
     if(id){const a={};sids.forEach(s=>{const v=fv(fd,'att_'+s);if(v)a[s]=v});o.attendance=a;o.status=fv(fd,'status')||'scheduled';
       if(o.status==='scheduled'&&Object.keys(a).length&&o.date<=today())o.status='done';
-      put('lessons',id,o);closeSheet();toast(clash?`已儲存。注意：和 ${clash.time} 的課時間重疊`:'已儲存');
+      put('lessons',id,o);
+      let got=0;
+      sids.forEach(sid=>{
+        const ex=lessonPayOf(id,sid),want=fd.get('paid_'+sid)==='on'&&counted(o,sid),fee=studentFee(o,byId('students',sid));
+        if(want&&!ex){put('payments',uid(),{type:'single',studentId:sid,lessonId:id,amount:fee,date:o.date,method:'現金',note:o.title||'課程費',createdAt:Date.now()});got+=fee}
+        else if(want&&ex){if(Number(ex.amount)!==fee||ex.date!==o.date)put('payments',ex.id,{...ex,amount:fee,date:o.date});got+=fee}
+        else if(!want&&ex)del('payments',ex.id);
+      });
+      closeSheet();toast((got?`已儲存，收費 ${money(got)}`:'已儲存')+(clash?`。注意：和 ${clash.time} 的課時間重疊`:''));
     }else{const n=Number(fv(fd,'repeat')||1);o.attendance={};o.status='scheduled';o.createdAt=Date.now();
       for(let i=0;i<n;i++)put('lessons',uid(),{...o,date:addDays(o.date,i*7)});
       ui.day=o.date;ui.week=weekStart(o.date);closeSheet();toast((n>1?`已排 ${n} 堂課`:'已排課')+(clash?`。注意：和 ${clash.time} 的課時間重疊`:''));
