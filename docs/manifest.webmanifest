@@ -1,0 +1,16 @@
+{
+  "name": "匹克球教練本",
+  "short_name": "教練本",
+  "description": "給匹克球教練的學生、課表、收費與學習紀錄管理工具",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F1F4F3",
+  "theme_color": "#1E5D78",
+  "lang": "zh-Hant-TW",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
