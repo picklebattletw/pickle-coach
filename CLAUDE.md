@@ -37,6 +37,7 @@
 - `settings` 新欄位加到 `DEFAULT_SETTINGS`。
 
 ## 功能重點
+- 課程價目表：`settings.prices={normal:{1,2,3,4},trial:{1,2,3,4}}`，每人每堂價格由「課程性質（一般課／體驗課）× 上課人數（1對1～1對4）」決定；格子留 0 代表沿用人數較少的價格。課程有 `feeKind`（normal/trial）與 `payHeads`（收費人數，0＝依學生人數）。學生的 `price` 是個人專屬單價，優先於價目表。`singlePrice` 保留為最後的備援值，儲存設定時會同步成一般課 1對1 的價格。
 - 課程包（payments.type='package'，kind 首購/續約/加購，sessions、expiry），點名出席或未到時扣堂；可設定依時數扣堂。
 - 單堂制學生（billing='perLesson'）：計算待收款。
 - 提醒：續約（剩餘 ≤ lowAt）、到期、待收款、太久沒上課。

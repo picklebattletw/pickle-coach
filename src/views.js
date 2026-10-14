@@ -32,7 +32,8 @@ function stLabel(l){
   return '';
 }
 function lessonCard(l){
-  const tp=l.type==='group'?`<span class="tag">團體 ${(l.studentIds||[]).length}/${l.capacity||4}</span>`:'<span class="tag">一對一</span>';
+  const n=headsOf(l);
+  const tp=(feeKindOf(l)==='trial'?'<span class="tag ball">體驗</span>':'')+(l.type==='group'?`<span class="tag">團體 ${(l.studentIds||[]).length}/${l.capacity||4}</span>`:`<span class="tag">${n>4?n+' 人':HEADLABEL[n]}</span>`);
   const col=(l.studentIds||[]).length===1?sColor(byId('students',l.studentIds[0])):'';
   return `<button class="lesson ${l.status||''}" data-act="edit-lesson" data-id="${l.id}">
     <div class="time" ${col&&l.status==='scheduled'?`style="border-color:${col}"`:''}><b>${esc(l.time)}</b><span>${endTime(l.time,l.duration)}</span></div>
@@ -143,7 +144,7 @@ function vStudent(s){
   const others=all('payments').filter(p=>p.studentId===s.id&&p.type!=='package').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const nl=nextLesson(s.id),ex=expiryOf(s.id),o=owed(s);
   const st={active:'',paused:'<span class="tag warn">暫停中</span>',archived:'<span class="tag mute">已封存</span>'}[s.status||'active'];
-  const firstStat=isPerLesson(s)?`<div class="stat"><span>待收款</span><b style="color:${o>0?'var(--bad)':'inherit'}">${money(o)}</b><small>單堂 ${money(s.price||SET().singlePrice)}</small></div>`
+  const firstStat=isPerLesson(s)?`<div class="stat"><span>待收款</span><b style="color:${o>0?'var(--bad)':'inherit'}">${money(o)}</b><small>${Number(s.price)>0?'專屬單價 '+money(s.price):'依人數價目表'}</small></div>`
     :`<div class="stat"><span>剩餘堂數</span><b style="color:${r<0?'var(--bad)':r<=SET().lowAt?'var(--warn)':'inherit'}">${hasPkg(s.id)?fmtNum(r):'—'}</b><small>${ex?'到期 '+dlabel(ex):'&nbsp;'}</small></div>`;
   return `<button class="back" data-act="back">‹ 學生列表</button>
   <div class="profile"><div class="av" style="background:${sColor(s)}22;color:${sColor(s)}">${initial(s.name)}</div><div style="min-width:0"><h1>${esc(s.name)} ${st}</h1>
@@ -265,9 +266,12 @@ function vSettings(){
   <div class="grid2"><div class="f" style="margin-top:0"><label for="st_coach">你的稱呼</label><input id="st_coach" name="coachName" value="${esc(s.coachName)}" placeholder="例：Ken 教練"></div>
   <div class="f" style="margin-top:0"><label for="st_brand">品牌／球隊名稱</label><input id="st_brand" name="brand" value="${esc(s.brand)}" placeholder="例：Pickle Battle"></div></div>
   <div class="f"><label for="st_loc">常用上課地點</label><input id="st_loc" name="defaultLocation" value="${esc(s.defaultLocation)}"></div>
-  <div class="grid2"><div class="f"><label for="st_dur">預設課程長度</label><select id="st_dur" name="defaultDuration">${[30,60,90,120].map(m=>`<option value="${m}" ${Number(s.defaultDuration)===m?'selected':''}>${m} 分鐘</option>`).join('')}</select></div>
-  <div class="f"><label for="st_price">單堂制預設單價</label><input id="st_price" type="number" min="0" name="singlePrice" value="${esc(s.singlePrice)}"></div></div>
+  <div class="f"><label for="st_dur">預設課程長度</label><select id="st_dur" name="defaultDuration">${[30,60,90,120].map(m=>`<option value="${m}" ${Number(s.defaultDuration)===m?'selected':''}>${m} 分鐘</option>`).join('')}</select></div>
   <div class="f"><label for="st_mode">扣堂方式</label><select id="st_mode" name="deductMode"><option value="lesson" ${s.deductMode!=='hours'?'selected':''}>每堂扣 1 堂（不論時數）</option><option value="hours" ${s.deductMode==='hours'?'selected':''}>依時數扣（60 分鐘 = 1 堂，90 分鐘 = 1.5 堂）</option></select></div>
+  <div class="f"><span class="lb">課程價目表（每人每堂的價格）</span>
+  <p class="hint" style="margin:0">依上課人數訂價，體驗課可以另外設定。留空的格子會沿用人數較少的價格。</p>
+  ${Object.entries(PRICEKIND).map(([k,n])=>`<div class="pricerow"><span class="lb">${n}</span><div class="grid4">${HEADS.map(h=>`<div class="f"><label for="pr_${k}_${h}">${HEADLABEL[h]}</label><input id="pr_${k}_${h}" type="number" min="0" step="10" inputmode="numeric" name="price_${k}_${h}" value="${esc(s.prices[k][h]||'')}" placeholder="${unitPriceFor(k,h)}"></div>`).join('')}</div></div>`).join('')}
+  <p class="hint" style="margin:0">單堂制學生的待收款會依這張表計算（60 分鐘以外的課，若扣堂方式選「依時數」也會按比例換算）。學生資料若填了「個人專屬單價」，則以專屬單價為準。</p></div>
   <div class="grid3"><div class="f"><label for="st_low">剩幾堂提醒續約</label><input id="st_low" type="number" min="0" name="lowAt" value="${esc(s.lowAt)}"></div>
   <div class="f"><label for="st_idle">幾天沒上課算流失</label><input id="st_idle" type="number" min="1" name="inactiveDays" value="${esc(s.inactiveDays)}"></div>
   <div class="f"><label for="st_exp">到期前幾天提醒</label><input id="st_exp" type="number" min="0" name="expiryWarnDays" value="${esc(s.expiryWarnDays)}"></div></div>
@@ -300,8 +304,8 @@ function buildMsg(){
     let txt=`【學習報告】${s.name}\n${s.goal?`目標：${s.goal}\n`:''}累計上課：${fmtNum(usedUnits(s.id))} 堂｜學習紀錄：${ls.length} 筆\n`;
     if(g){txt+=`\n技術評估（${dlabel(g.date)}）\n`+SKILLS.map(([k,n])=>{const v=Number(g.skills?.[k]||0),b=f?Number(f.skills?.[k]||0):null;return `${n}　${stars(v)}${b!==null&&v>b?`  ↑${v-b}`:''}`}).join('\n');if(g.homework)txt+=`\n\n下一階段練習：${g.homework}`}
     return (txt+`\n\n${sign}`).trim()}
-  if(t==='trial'){const l=byId('leads',ref);if(!l)return '';const st=SET();
-    return `${l.name} 您好！歡迎來體驗匹克球 🏓\n\n📅 ${l.trialDate?dlabel(l.trialDate):'（時間確認中）'}${l.trialTime?' '+l.trialTime:''}\n📍 ${st.defaultLocation||'（地點另行通知）'}\n\n請穿運動鞋、帶水，球拍現場可借用。\n有任何問題都可以直接回覆這則訊息！\n${sign}`.trim()}
+  if(t==='trial'){const l=byId('leads',ref);if(!l)return '';const st=SET(),tp=unitPriceFor('trial',1);
+    return `${l.name} 您好！歡迎來體驗匹克球 🏓\n\n📅 ${l.trialDate?dlabel(l.trialDate):'（時間確認中）'}${l.trialTime?' '+l.trialTime:''}\n📍 ${st.defaultLocation||'（地點另行通知）'}\n${tp>0?`💰 體驗課 ${money(tp)}／人（多人同行另有優惠）\n`:''}\n請穿運動鞋、帶水，球拍現場可借用。\n有任何問題都可以直接回覆這則訊息！\n${sign}`.trim()}
   if(t==='custom')return `【${B} 公告】\n\n\n${sign}`;
   return '';
 }

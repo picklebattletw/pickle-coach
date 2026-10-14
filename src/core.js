@@ -6,7 +6,7 @@ const CONFIG = {
   DRIVE_FOLDER: '匹克球教練本',
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
-  VERSION: '1.0.0'
+  VERSION: '1.1.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -16,12 +16,17 @@ const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const SKILLS=[['serve','發球'],['return','接發球'],['dink','小球 Dink'],['drop','第三拍吊球'],['drive','抽球'],['volley','截擊'],['footwork','步法'],['strategy','戰術判斷']];
 const PAYTYPES={package:['課程包','in'],single:['單堂收費','in'],income:['其他收入','in'],venue:['場地費','out'],gear:['器材','out'],expense:['其他支出','out']};
 const PKGKIND={first:'首購',renew:'續約',addon:'加購'};
+/* 價目表：每人每堂費用 = 課程性質（一般課／體驗課）× 上課人數（1對1～1對4） */
+const PRICEKIND={normal:'一般課',trial:'體驗課'};
+const HEADS=[1,2,3,4];
+const HEADLABEL={1:'1對1',2:'1對2',3:'1對3',4:'1對4'};
+const DEFAULT_PRICES={normal:{1:1000,2:700,3:600,4:500},trial:{1:600,2:500,3:450,4:400}};
 const METHODS=['現金','轉帳','LINE Pay','街口支付','其他'];
 const SOURCES=['朋友介紹','Instagram','Facebook','LINE 社群','體驗課','球場現場','其他'];
 const LEADST={inquiry:['詢問中','mute'],trial:['已約體驗','ball'],won:['已成交','good'],lost:['未成交','bad']};
 const COLORS=['#1E5D78','#2E7D55','#B86E12','#B23A3A','#6B4FA0','#0F8A8A','#A0527A','#5A6B70'];
 const COLS=['students','lessons','payments','logs','leads'];
-const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,deductMode:'lesson',lowAt:2,inactiveDays:21,expiryWarnDays:14,singlePrice:1000,updatedAt:0};
+const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,deductMode:'lesson',lowAt:2,inactiveDays:21,expiryWarnDays:14,singlePrice:1000,prices:null,updatedAt:0};
 
 /* ================== 小工具 ================== */
 const pad=n=>String(n).padStart(2,'0');
@@ -44,11 +49,20 @@ const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true}ca
 const lsDel=k=>{try{localStorage.removeItem(k)}catch(_){}};
 
 /* ================== 資料 ================== */
-function emptyData(){return {schema:1,settings:{...DEFAULT_SETTINGS},students:{},lessons:{},payments:{},logs:{},leads:{}}}
+// 補上預設值；舊資料沒有價目表時，用原本的「單堂制預設單價」當 1對1 一般課的價格
+function fillSettings(s){
+  const o={...DEFAULT_SETTINGS,...(s||{})};
+  const base=Number(o.singlePrice)>0?Number(o.singlePrice):DEFAULT_PRICES.normal[1];
+  const src=o.prices&&typeof o.prices==='object'?o.prices:{normal:{...DEFAULT_PRICES.normal,1:base},trial:{...DEFAULT_PRICES.trial}};
+  o.prices={};
+  for(const k of Object.keys(PRICEKIND)){o.prices[k]={};for(const n of HEADS){const v=Number(src[k]?.[n]||0);o.prices[k][n]=v>0?Math.round(v):0}}
+  return o;
+}
+function emptyData(){return {schema:1,settings:fillSettings(),students:{},lessons:{},payments:{},logs:{},leads:{}}}
 let D=emptyData();
 const all=col=>Object.values(D[col]||{}).filter(r=>r&&!r.deleted);
 const byId=(col,id)=>{const r=id&&D[col]?.[id];return r&&!r.deleted?r:null};
-const SET=()=>({...DEFAULT_SETTINGS,...D.settings});
+const SET=()=>fillSettings(D.settings);
 const coachSign=()=>{const s=SET();return s.coachName?`— ${s.coachName}`:''};
 const brandName=()=>SET().brand||CONFIG.APP_NAME;
 
@@ -59,13 +73,13 @@ function putSettings(s){D.settings={...SET(),...s,updatedAt:Date.now()};changed(
 function normalize(x){
   const d=emptyData();if(!x||typeof x!=='object')return d;
   for(const c of COLS){const v=x[c];if(Array.isArray(v))v.forEach(r=>{if(r&&r.id)d[c][r.id]=r});else if(v&&typeof v==='object')for(const[k,r]of Object.entries(v))if(r)d[c][k]={...r,id:r.id||k}}
-  d.settings={...DEFAULT_SETTINGS,...(x.settings||{})};return d;
+  d.settings=fillSettings(x.settings);return d;
 }
 function merge(a,b){
   const out=emptyData();
   for(const c of COLS){const ids=new Set([...Object.keys(a[c]||{}),...Object.keys(b[c]||{})]);
     for(const id of ids){const x=a[c]?.[id],y=b[c]?.[id];out[c][id]=!x?y:!y?x:((y.updatedAt||0)>(x.updatedAt||0)?y:x)}}
-  out.settings=(b.settings?.updatedAt||0)>(a.settings?.updatedAt||0)?{...DEFAULT_SETTINGS,...b.settings}:{...DEFAULT_SETTINGS,...a.settings};
+  out.settings=fillSettings((b.settings?.updatedAt||0)>(a.settings?.updatedAt||0)?b.settings:a.settings);
   // 刪除超過 90 天的標記，避免檔案越長越大
   const cut=Date.now()-90*864e5;
   for(const c of COLS)for(const[id,r]of Object.entries(out[c]))if(r.deleted&&(r.updatedAt||0)<cut)delete out[c][id];
@@ -74,6 +88,18 @@ function merge(a,b){
 
 /* ================== 計算 ================== */
 const unitsOf=l=>SET().deductMode==='hours'?Number(l.duration||60)/60:1;
+/* ---- 課程收費 ---- */
+const feeKindOf=l=>l&&l.feeKind==='trial'?'trial':'normal';
+// 收費人數：有自己填就用填的（體驗課常有還沒建檔的人），否則用這堂的學生人數
+const headsOf=l=>{const m=Math.round(Number((l&&l.payHeads)||0));return m>0?Math.min(m,99):Math.max(1,((l&&l.studentIds)||[]).length)};
+function unitPriceFor(kind,heads){
+  const st=SET(),P=st.prices||{},k=PRICEKIND[kind]?kind:'normal',h=Math.min(Math.max(Math.round(Number(heads)||1),1),4);
+  const pick=kk=>{for(let i=h;i>=1;i--){const v=Number(P[kk]?.[i]||0);if(v>0)return v}return 0};
+  return pick(k)||pick('normal')||Number(st.singlePrice||0);
+}
+const lessonUnitPrice=l=>unitPriceFor(feeKindOf(l),headsOf(l));           // 這堂每人的價格
+const studentFee=(l,s)=>Math.round((Number(s?.price)>0?Number(s.price):lessonUnitPrice(l))*unitsOf(l)); // 這位學生這堂應收
+const lessonFee=l=>Math.round(lessonUnitPrice(l)*unitsOf(l))*headsOf(l);  // 整堂定價
 const counted=(l,sid)=>l.status!=='cancelled'&&l.deduct!==false&&['present','noshow'].includes((l.attendance||{})[sid]);
 const lessonsOf=sid=>all('lessons').filter(l=>(l.studentIds||[]).includes(sid));
 const packagesOf=sid=>all('payments').filter(p=>p.studentId===sid&&p.type==='package').sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -82,10 +108,9 @@ function boughtUnits(sid){return packagesOf(sid).reduce((a,p)=>a+Number(p.sessio
 function remaining(sid){return Math.round((boughtUnits(sid)-usedUnits(sid))*10)/10}
 const isPerLesson=s=>s&&s.billing==='perLesson';
 const hasPkg=sid=>packagesOf(sid).length>0;
-function owed(s){ // 單堂制：已上課應收 - 已收
+function owed(s){ // 單堂制：已上課應收 - 已收（依價目表，學生有專屬單價則以專屬單價為準）
   if(!isPerLesson(s))return 0;
-  const price=Number(s.price||SET().singlePrice||0);
-  const due=lessonsOf(s.id).filter(l=>counted(l,s.id)).reduce((a,l)=>a+price*unitsOf(l),0);
+  const due=lessonsOf(s.id).filter(l=>counted(l,s.id)).reduce((a,l)=>a+studentFee(l,s),0);
   const paid=all('payments').filter(p=>p.studentId===s.id&&p.type==='single').reduce((a,p)=>a+Number(p.amount||0),0);
   return due-paid;
 }
