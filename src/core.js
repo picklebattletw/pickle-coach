@@ -2,7 +2,7 @@
 const CONFIG = {
   APP_NAME: '匹克球教練本',
   // 到 Google Cloud Console 建立「OAuth 用戶端 ID（網頁應用程式）」後貼在這裡
-  GOOGLE_CLIENT_ID: 'PASTE_YOUR_CLIENT_ID.apps.googleusercontent.com',
+  GOOGLE_CLIENT_ID: '1077129293968-bf6dib39uopauv90j3l9107ardu57290.apps.googleusercontent.com',
   DRIVE_FOLDER: '匹克球教練本',
   DRIVE_FILE: 'coach-data.json',
   PRIVACY_URL: 'privacy.html',
