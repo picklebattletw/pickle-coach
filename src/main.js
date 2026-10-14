@@ -101,7 +101,6 @@ document.addEventListener('change',e=>{
   if(t.dataset.input==='nref'){ui.nref=t.value;msgDirty=false;render()}
   if(t.id==='g_s'){document.getElementById('g_l').innerHTML=lessonOptsHtml(t.value,'');const pv=logsOf(t.value)[0];
     SKILLS.forEach(([k])=>{const r=document.getElementById('sk_'+k);if(r){r.value=pv?.skills?.[k]||2;document.getElementById('o_'+k).textContent=r.value}})}
-  if(t.id==='l_type'){const ti=document.getElementById('l_title');if(t.value==='group'&&ti.value==='一對一私人課')ti.value='初學團體班'}
   if(['l_fee','l_heads','l_price','l_dur'].includes(t.id)||t.name==='sids')feeInfo();
   if(t.id==='importFile'&&t.files[0]){importBackup(t.files[0]);t.value=''}
 });

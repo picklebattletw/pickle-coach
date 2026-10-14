@@ -28,12 +28,11 @@ function empty(msg,btn,act,extra=''){return `<div class="empty"><p>${msg}</p>${b
 function stLabel(l){
   if(l.status==='cancelled')return '<span class="tag mute">已取消</span>';
   if(l.status==='done')return '<span class="tag good">已完成</span>';
-  if(l.type==='group'){const n=(l.studentIds||[]).length,c=Number(l.capacity||4);return n>=c?'<span class="tag bad">額滿</span>':`<span class="tag ball">剩 ${c-n} 位</span>`}
   return '';
 }
 function lessonCard(l){
   const n=headsOf(l),tk=feeKindOf(l);
-  const tp=tk==='trial'?`<span class="tag ball">體驗 ${n} 人</span>`:(l.type==='group'?`<span class="tag">團體 ${(l.studentIds||[]).length}/${l.capacity||4}</span>`:`<span class="tag">${n>4?n+' 人':headLabel('normal',n)}</span>`);
+  const tp=tk==='trial'?`<span class="tag ball">體驗 ${n} 人</span>`:`<span class="tag">${n>4?n+' 人':headLabel('normal',n)}</span>`;
   const col=(l.studentIds||[]).length===1?sColor(byId('students',l.studentIds[0])):'';
   return `<button class="lesson ${l.status||''}" data-act="edit-lesson" data-id="${l.id}">
     <div class="time" ${col&&l.status==='scheduled'?`style="border-color:${col}"`:''}><b>${esc(l.time)}</b><span>${endTime(l.time,l.duration)}</span></div>
@@ -304,7 +303,7 @@ function buildMsg(){
     return `【${B} 上課提醒】\n${names(l)} 您好！\n提醒您的課程時間：\n📅 ${dlabel(l.date)} ${l.time}–${endTime(l.time,l.duration)}\n📍 ${l.location||'（地點另行通知）'}\n🏓 ${l.title||'匹克球課'}\n\n請攜帶球拍、水和毛巾，提早 10 分鐘到場暖身。\n如需請假，請在課前 24 小時告知，謝謝！\n\n${sign}`.trim()}
   if(t==='week'){const ws=ui.week,we=addDays(ws,6);const ls=all('lessons').filter(l=>l.date>=ws&&l.date<=we&&l.status!=='cancelled').sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
     if(!ls.length)return `【${B} 本週課表】${dlabel(ws)}–${dlabel(we)}\n本週暫無課程。`;
-    return (`【${B} 本週課表】\n${dlabel(ws)} – ${dlabel(we)}\n\n`+ls.map(l=>{const open=l.type==='group'?Math.max(0,Number(l.capacity||4)-(l.studentIds||[]).length):null;return `${dlabel(l.date)} ${l.time}　${l.title||'匹克球課'}${l.location?'｜'+l.location:''}${open===null?'':open?`（剩 ${open} 位）`:'（額滿）'}`}).join('\n')+`\n\n想報名團體課請直接回覆，額滿為止！\n${sign}`).trim()}
+    return (`【${B} 本週課表】\n${dlabel(ws)} – ${dlabel(we)}\n\n`+ls.map(l=>`${dlabel(l.date)} ${l.time}　${l.title||'匹克球課'}${l.location?'｜'+l.location:''}`).join('\n')+`\n\n${sign}`).trim()}
   if(t==='feedback'){const g=byId('logs',ref);if(!g)return '';const s=byId('students',g.studentId);
     const prev=logsOf(g.studentId).find(x=>x.id!==g.id&&((x.date||'')<(g.date||'')||(x.date===g.date&&(x.createdAt||0)<(g.createdAt||0))));
     const up=prev?SKILLS.filter(([k])=>Number(g.skills?.[k]||0)>Number(prev.skills?.[k]||0)).map(([k,n])=>`${n} ${prev.skills?.[k]||0}→${g.skills[k]}`):[];

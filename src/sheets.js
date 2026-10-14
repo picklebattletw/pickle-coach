@@ -42,7 +42,7 @@ function studentSheet(id,preset={}){
 
 function lessonSheet(id,preset={}){
   const st=SET();
-  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,type:'private',capacity:4,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'一對一私人課',location:st.defaultLocation||''};
+  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'一對一私人課',location:st.defaultLocation||''};
   const att=l.attendance||{};
   const locs=[...new Set([st.defaultLocation,...all('lessons').map(x=>x.location)].filter(Boolean))];
   const studs=all('students').filter(s=>(s.status||'active')==='active'||(l.studentIds||[]).includes(s.id)).sort(byName);
@@ -51,8 +51,6 @@ function lessonSheet(id,preset={}){
   <div class="f"><label for="l_time">開始</label><input id="l_time" type="time" name="time" required value="${esc(l.time)}"></div>
   <div class="f"><label for="l_dur">時長</label><select id="l_dur" name="duration">${[30,45,60,90,120,150,180].map(m=>`<option value="${m}" ${Number(l.duration)===m?'selected':''}>${m} 分</option>`).join('')}</select></div></div>
   <div class="f"><label for="l_title">課程名稱</label><input id="l_title" name="title" list="titles" value="${esc(l.title)}"><datalist id="titles">${[...new Set(['一對一私人課','雙人課','初學團體班','進階團體班','對打實戰課',...all('lessons').map(x=>x.title)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
-  <div class="grid2"><div class="f"><label for="l_type">類型</label><select id="l_type" name="type"><option value="private" ${l.type!=='group'?'selected':''}>一對一／小班</option><option value="group" ${l.type==='group'?'selected':''}>團體課（有名額）</option></select></div>
-  <div class="f"><label for="l_cap">團體名額</label><input id="l_cap" type="number" min="1" max="40" name="capacity" value="${esc(l.capacity||4)}"></div></div>
   <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
   <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}</div>
   <div class="grid3"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
@@ -70,9 +68,8 @@ function lessonSheet(id,preset={}){
   ${id?`<div class="actions" style="margin-top:8px"><button type="button" class="btn line" data-act="remind-lesson" data-id="${id}">傳上課提醒</button><button type="button" class="btn" data-act="ics" data-id="${id}">加入手機行事曆</button><button type="button" class="btn" data-act="dup-lesson" data-id="${id}">複製到下週</button></div>`:''}`,
   fd=>{
     const sids=fd.getAll('sids').map(String);
-    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title')||'匹克球課',type:fv(fd,'type'),capacity:Number(fv(fd,'capacity')||4),location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),feeTotal:Math.max(0,Math.round(Number(fv(fd,'feeTotal')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
+    const o={...l,date:fv(fd,'date'),time:fv(fd,'time'),duration:Number(fv(fd,'duration')||60),title:fv(fd,'title')||'匹克球課',location:fv(fd,'location'),studentIds:sids,feeKind:fv(fd,'feeKind')==='trial'?'trial':'normal',payHeads:Math.max(0,Math.round(Number(fv(fd,'payHeads')||0))),feeTotal:Math.max(0,Math.round(Number(fv(fd,'feeTotal')||0))),deduct:fd.get('deduct')==='on',note:fv(fd,'note')};
     if(!o.date||!o.time)return toast('請填寫日期和時間');
-    if(o.type==='group'&&sids.length>o.capacity)return toast(`已選 ${sids.length} 位，超過名額 ${o.capacity}`);
     const clash=all('lessons').find(x=>x.id!==id&&x.date===o.date&&x.status!=='cancelled'&&toMin(x.time)<toMin(o.time)+o.duration&&toMin(o.time)<toMin(x.time)+Number(x.duration||60));
     if(id){const a={};sids.forEach(s=>{const v=fv(fd,'att_'+s);if(v)a[s]=v});o.attendance=a;o.status=fv(fd,'status')||'scheduled';
       if(o.status==='scheduled'&&Object.keys(a).length&&o.date<=today())o.status='done';
@@ -196,17 +193,17 @@ function seedDemo(){
   P('p3',{type:'single',studentId:'s3',amount:5000,date:addDays(t,-12),method:'現金',note:'5 堂課費'});
   P('p4',{type:'venue',amount:1600,date:addDays(t,-8),method:'轉帳',note:'場地租借 4 小時'});
   P('p5',{type:'single',studentId:'s4',amount:900,date:addDays(t,-13),method:'現金',note:'課程費'});
-  const L=(id,d,time,o)=>D.lessons[id]={id,date:d,time,duration:60,title:'一對一私人課',type:'private',capacity:4,location:'大安運動中心 B2',deduct:true,attendance:{},status:'scheduled',note:'',...mk(o)};
+  const L=(id,d,time,o)=>D.lessons[id]={id,date:d,time,duration:60,title:'一對一私人課',location:'大安運動中心 B2',deduct:true,attendance:{},status:'scheduled',note:'',...mk(o)};
   for(let i=1;i<=8;i++){const d=addDays(t,-i*7);if(i<=6)L('w3'+i,addDays(d,1),'10:00',{studentIds:['s3'],attendance:{s3:'present'},status:'done'});}
   for(let i=1;i<=5;i++)L('w1'+i,addDays(t,-i*7+2),'19:00',{studentIds:['s1'],attendance:{s1:i===3?'leave':'present'},status:'done'});
-  L('g1',addDays(t,-7),'20:00',{title:'初學團體班',type:'group',duration:90,studentIds:['s1','s2','s4'],attendance:{s1:'present',s2:'present',s4:'present'},status:'done'});
-  L('g0',addDays(t,-14),'20:00',{title:'初學團體班',type:'group',duration:90,studentIds:['s2','s4'],attendance:{s2:'present',s4:'present'},status:'done'});
+  L('g1',addDays(t,-7),'20:00',{title:'初學團體班',duration:90,studentIds:['s1','s2','s4'],attendance:{s1:'present',s2:'present',s4:'present'},status:'done'});
+  L('g0',addDays(t,-14),'20:00',{title:'初學團體班',duration:90,studentIds:['s2','s4'],attendance:{s2:'present',s4:'present'},status:'done'});
   L('m1',addDays(t,-21),'19:00',{studentIds:['s2'],attendance:{s2:'present'},status:'done'});
   L('m2',addDays(t,-2),'19:00',{studentIds:['s2'],status:'scheduled'});
   L('t1',t,'19:00',{studentIds:['s3'],note:'練第三拍吊球'});
-  L('t2',t,'20:00',{title:'初學團體班',type:'group',duration:90,studentIds:['s1','s2']});
+  L('t2',t,'20:00',{title:'初學團體班',duration:90,studentIds:['s1','s2']});
   L('u1',addDays(t,2),'10:00',{studentIds:['s1'],location:'青年公園匹克球場'});
-  L('u2',addDays(ws,12),'20:00',{title:'初學團體班',type:'group',duration:90,studentIds:['s1','s4']});
+  L('u2',addDays(ws,12),'20:00',{title:'初學團體班',duration:90,studentIds:['s1','s4']});
   L('tr1',addDays(t,-4),'10:00',{title:'體驗課',feeKind:'trial',payHeads:6,duration:90,studentIds:[],status:'done',note:'社團揪團體驗，6 人'});
   L('tr2',addDays(t,3),'10:00',{title:'體驗課',feeKind:'trial',payHeads:4,duration:90,studentIds:[],note:'範例・黃先生 揪 4 人'});
   const G=(id,o)=>D.logs[id]={id,...mk(o)};
