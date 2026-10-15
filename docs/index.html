@@ -114,19 +114,12 @@ h2 .more{margin-left:auto}
 .mcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:10px}
 .mcal .hd{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding-bottom:2px}
 .mcal .pad{aspect-ratio:1}
-.mcal .day{aspect-ratio:1;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--ink)}
-.mcal .day b{font-family:var(--f-num);font-size:17px;font-weight:600;line-height:1}
-.mcal .day.has{background:var(--court-soft);border-color:var(--court-soft);color:var(--court)}
+.mcal .day{aspect-ratio:1;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
+.mcal .day b{font-family:var(--f-num);font-size:18px;font-weight:600;line-height:1}
+.mcal .day.has{background:var(--court-soft);border-color:var(--court);color:var(--court)}
+.mcal .day.has b{font-weight:700}
 .mcal .day.today{border-color:var(--ball);border-width:2px}
 .mcal .day.sel{background:var(--court);border-color:var(--court);color:var(--on-court)}
-.mcal .dots{display:flex;gap:2px;height:6px;align-items:center}
-.mcal .dots i{width:5px;height:5px;border-radius:50%;background:var(--court);display:block}
-.mcal .day.sel .dots i{background:var(--on-court)}
-.mcal .dots i.p,.mcal .day.sel .dots i.p{background:var(--good)}
-.mcal .dots i.u,.mcal .day.sel .dots i.u{background:var(--bad)}
-.callegend{display:flex;align-items:center;gap:4px;margin-top:8px}
-.callegend i{width:7px;height:7px;border-radius:50%;background:var(--court);display:inline-block;margin-right:2px}
-.callegend i.p{background:var(--good)}.callegend i.u{background:var(--bad)}
 .dayhead{font-weight:700;margin:18px 0 8px;font-size:14px;color:var(--muted)}
 .dayhead.is-today{color:var(--court)}
 .search{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:12px}
@@ -297,7 +290,7 @@ const CONFIG = {
   PRIVACY_URL: 'privacy.html',
   // 新增可登入的教練：Google 的「測試人員」名單（Google 沒有開放用程式管理，只能在這一頁操作）
   USERS_URL: 'https://console.cloud.google.com/auth/audience',
-  VERSION: '1.9.0'
+  VERSION: '1.9.1'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -680,8 +673,7 @@ function vCal(){
       if(!d)return '<div class="pad"></div>';
       const ls=lessonsOn(d).filter(l=>l.status!=='cancelled');
       const cls=['day',ls.length?'has':'',d===t?'today':'',d===ui.day?'sel':''].filter(Boolean).join(' ');
-      const dots=ls.slice(0,4).map(l=>{const s=lessonState(l);return `<i class="${s==='paid'?'p':s==='unpaid'?'u':''}"></i>`}).join('');
-      return `<button class="${cls}" data-act="pick-day" data-d="${d}" aria-label="${dlabel(d)} ${ls.length} 堂"><b>${Number(d.slice(8))}</b><span class="dots">${dots}</span></button>`;
+      return `<button class="${cls}" data-act="pick-day" data-d="${d}" aria-label="${dlabel(d)} ${ls.length} 堂"><b>${Number(d.slice(8))}</b></button>`;
     }).join('');
   const ls=lessonsOn(ui.day);
   const body=`<div class="dayhead ${ui.day===t?'is-today':''}">${dlabel(ui.day)}${ui.day===t?' · 今天':''} <span class="tag mute">${ls.length} 堂</span></div>
@@ -690,7 +682,6 @@ function vCal(){
   <p class="sub">${month.length} 堂課・共 ${fmtNum(hrs)} 小時${owe?`・<b style="color:var(--bad)">${owe} 堂未收費</b>`:''}</p>
   <div class="weekbar"><button class="btn sm" data-act="cal-month" data-m="${shiftM(-1)}">‹ 上個月</button><div class="t"></div><button class="btn sm" data-act="cal-month" data-m="${shiftM(1)}">下個月 ›</button></div>
   <div class="mcal">${grid}</div>
-  <p class="hint callegend"><i></i>已排定　<i class="p"></i>已收費　<i class="u"></i>未收費</p>
   <div class="btns" style="margin-top:12px"><button class="btn pri" data-act="new-lesson" data-d="${ui.day}">＋ 排課</button><button class="btn" data-act="cal-today">回到今天</button><button class="btn" data-act="share-week">傳本週課表</button></div>
   ${body}`;
 }

@@ -100,8 +100,7 @@ function vCal(){
       if(!d)return '<div class="pad"></div>';
       const ls=lessonsOn(d).filter(l=>l.status!=='cancelled');
       const cls=['day',ls.length?'has':'',d===t?'today':'',d===ui.day?'sel':''].filter(Boolean).join(' ');
-      const dots=ls.slice(0,4).map(l=>{const s=lessonState(l);return `<i class="${s==='paid'?'p':s==='unpaid'?'u':''}"></i>`}).join('');
-      return `<button class="${cls}" data-act="pick-day" data-d="${d}" aria-label="${dlabel(d)} ${ls.length} 堂"><b>${Number(d.slice(8))}</b><span class="dots">${dots}</span></button>`;
+      return `<button class="${cls}" data-act="pick-day" data-d="${d}" aria-label="${dlabel(d)} ${ls.length} 堂"><b>${Number(d.slice(8))}</b></button>`;
     }).join('');
   const ls=lessonsOn(ui.day);
   const body=`<div class="dayhead ${ui.day===t?'is-today':''}">${dlabel(ui.day)}${ui.day===t?' · 今天':''} <span class="tag mute">${ls.length} 堂</span></div>
@@ -110,7 +109,6 @@ function vCal(){
   <p class="sub">${month.length} 堂課・共 ${fmtNum(hrs)} 小時${owe?`・<b style="color:var(--bad)">${owe} 堂未收費</b>`:''}</p>
   <div class="weekbar"><button class="btn sm" data-act="cal-month" data-m="${shiftM(-1)}">‹ 上個月</button><div class="t"></div><button class="btn sm" data-act="cal-month" data-m="${shiftM(1)}">下個月 ›</button></div>
   <div class="mcal">${grid}</div>
-  <p class="hint callegend"><i></i>已排定　<i class="p"></i>已收費　<i class="u"></i>未收費</p>
   <div class="btns" style="margin-top:12px"><button class="btn pri" data-act="new-lesson" data-d="${ui.day}">＋ 排課</button><button class="btn" data-act="cal-today">回到今天</button><button class="btn" data-act="share-week">傳本週課表</button></div>
   ${body}`;
 }
