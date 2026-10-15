@@ -10,7 +10,7 @@ const CONFIG = {
   PRIVACY_URL: 'privacy.html',
   // 新增可登入的教練：Google 的「測試人員」名單（Google 沒有開放用程式管理，只能在這一頁操作）
   USERS_URL: 'https://console.cloud.google.com/auth/audience',
-  VERSION: '1.9.1'
+  VERSION: '1.9.2'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';

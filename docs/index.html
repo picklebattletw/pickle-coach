@@ -111,11 +111,11 @@ h2 .more{margin-left:auto}
 .pseg button+button{border-left:1px solid var(--line)}
 .pseg button.on{background:var(--court);color:var(--on-court)}
 .weekbar .t{flex:1;text-align:center;font-weight:700}
-.mcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:10px}
-.mcal .hd{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding-bottom:2px}
-.mcal .pad{aspect-ratio:1}
-.mcal .day{aspect-ratio:1;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
-.mcal .day b{font-family:var(--f-num);font-size:18px;font-weight:600;line-height:1}
+.mcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:10px}
+.mcal .hd{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding-bottom:1px}
+.mcal .pad{height:28px}
+.mcal .day{height:28px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
+.mcal .day b{font-family:var(--f-num);font-size:15px;font-weight:600;line-height:1}
 .mcal .day.has{background:var(--court-soft);border-color:var(--court);color:var(--court)}
 .mcal .day.has b{font-weight:700}
 .mcal .day.today{border-color:var(--ball);border-width:2px}
@@ -290,7 +290,7 @@ const CONFIG = {
   PRIVACY_URL: 'privacy.html',
   // 新增可登入的教練：Google 的「測試人員」名單（Google 沒有開放用程式管理，只能在這一頁操作）
   USERS_URL: 'https://console.cloud.google.com/auth/audience',
-  VERSION: '1.9.1'
+  VERSION: '1.9.2'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
