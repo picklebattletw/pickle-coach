@@ -202,6 +202,8 @@ nav.tabs button.on{color:var(--court)}
 .sk input{width:100%;accent-color:var(--court)}
 .sk output{font-family:var(--f-num);font-weight:700;font-size:18px;text-align:right}
 .check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px}
+.finish{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 6px}
+.finish .grow{flex:1 1 150px;padding:12px 10px}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
 .actions .grow{flex:1}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;z-index:30;max-width:calc(100% - 32px)}

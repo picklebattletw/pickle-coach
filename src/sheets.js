@@ -47,6 +47,10 @@ function lessonSheet(id,preset={}){
   const locs=[...new Set([st.defaultLocation,...all('lessons').map(x=>x.location)].filter(Boolean))];
   const studs=all('students').filter(s=>(s.status||'active')==='active'||(l.studentIds||[]).includes(s.id)).sort(byName);
   openSheet(id?'課程內容':'排課',`
+  ${id&&l.status!=='cancelled'?`<div class="finish">
+  <button type="button" class="btn pri grow" data-act="finish-lesson" data-paid="1">✓ 完成課程（已收費）</button>
+  <button type="button" class="btn grow" data-act="finish-lesson" data-paid="0">✓ 完成課程（尚未收費）</button>
+  <p class="hint" style="width:100%;margin:0">按一下就把還沒點名的人記成出席、課程標為已完成，並決定要不要同時記收入。個別有請假或要改金額時，再往下調整。</p></div>`:''}
   <div class="grid3"><div class="f"><label for="l_date">日期</label><input id="l_date" type="date" name="date" required value="${esc(l.date)}"></div>
   <div class="f"><label for="l_time">開始</label><input id="l_time" type="time" name="time" required value="${esc(l.time)}"></div>
   <div class="f"><label for="l_dur">時長</label><select id="l_dur" name="duration">${[30,45,60,90,120,150,180].map(m=>`<option value="${m}" ${Number(l.duration)===m?'selected':''}>${m} 分</option>`).join('')}</select></div></div>

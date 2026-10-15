@@ -61,6 +61,15 @@ document.addEventListener('click',async e=>{
     case 'edit-lesson':lessonSheet(ds.id);break;
     case 'dup-lesson':{const f=document.getElementById('sf');if(f&&sheetSubmit)sheetSubmit(new FormData(f));dupSheet(ds.id);break}
     case 'all-present':document.querySelectorAll('#sf input[type=radio][value=present]').forEach(r=>r.checked=true);feeInfo();break;
+    case 'finish-lesson':{
+      const f=document.getElementById('sf');if(!f||!sheetSubmit)break;
+      const paid=ds.paid==='1';
+      // 還沒點名的一律視為出席；已經標請假／未到的維持原樣
+      f.querySelectorAll('.att').forEach(row=>{if(!row.querySelector('input[type=radio]:checked')){const r=row.querySelector('input[type=radio][value=present]');if(r)r.checked=true}});
+      feeInfo();
+      f.querySelectorAll('[name^=paid_],[name=paidAll]').forEach(c=>{c.checked=paid&&!c.disabled});
+      const st=f.querySelector('[name=status]');if(st)st.value='done';
+      sheetSubmit(new FormData(f));break}
     case 'all-paid':document.querySelectorAll('#sf input[name^=paid_]:not([disabled])').forEach(c=>c.checked=true);break;
     case 'rate':closeSheet();logSheet(null,{sid:ds.sid,rate:true});break;
     case 'new-log':{const f=document.getElementById('sf');if(f&&ds.lid&&sheetSubmit)sheetSubmit(new FormData(f));closeSheet();logSheet(null,{sid:ds.sid,lid:ds.lid});break}
