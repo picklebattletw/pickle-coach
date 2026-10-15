@@ -42,9 +42,9 @@ function studentSheet(id,preset={}){
 
 function lessonSheet(id,preset={}){
   const st=SET();
-  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'',location:st.defaultLocation||''};
+  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'',location:st.places[0]||st.defaultLocation||''};
   const att=l.attendance||{};
-  const locs=[...new Set([st.defaultLocation,...all('lessons').map(x=>x.location)].filter(Boolean))];
+  const locs=[...new Set([...st.places,...all('lessons').map(x=>x.location)].filter(Boolean))];
   const studs=all('students').filter(s=>(s.status||'active')==='active'||(l.studentIds||[]).includes(s.id)).sort(byName);
   openSheet(id?'課程內容':'排課',`
   ${id&&l.status!=='cancelled'?`<div class="finish">
@@ -55,7 +55,8 @@ function lessonSheet(id,preset={}){
   <div class="f"><label for="l_time">開始</label><input id="l_time" type="time" name="time" required value="${esc(l.time)}"></div>
   <div class="f"><label for="l_dur">時長</label><select id="l_dur" name="duration">${[30,45,60,90,120,150,180].map(m=>`<option value="${m}" ${Number(l.duration)===m?'selected':''}>${m} 分</option>`).join('')}</select></div></div>
   <div class="f"><label for="l_title">課程名稱（選填）</label><input id="l_title" name="title" list="titles" value="${esc(l.title)}" placeholder="留空就顯示「匹克球課」"><datalist id="titles">${[...new Set(['一對一私人課','雙人課','初學團體班','進階團體班','對打實戰課',...all('lessons').map(x=>x.title)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
-  <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
+  <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist>
+  ${st.places.length?`<div class="chips places">${st.places.map(n=>`<button type="button" class="chip ${n===l.location?'on':''}" data-act="pick-place" data-v="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</div>
   <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}<p class="hint" style="margin:4px 0 0">體驗課或還沒建檔的學員，可以不選學生，直接填下面的「收費人數」。</p></div>
   <div class="grid3"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
   <div class="f"><label for="l_heads">收費人數</label><input id="l_heads" type="number" min="0" max="20" step="1" inputmode="numeric" name="payHeads" value="${esc(l.payHeads||'')}" placeholder="依人數"></div>

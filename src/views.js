@@ -286,6 +286,7 @@ function vStats(){
 }
 
 /* ---------- 設定 ---------- */
+const placeRow=n=>`<div class="skrow"><input data-place value="${esc(n)}" maxlength="40" placeholder="例：大安運動中心 B2"><button type="button" class="btn sm danger" data-act="del-place" aria-label="刪除這個地點">✕</button></div>`;
 const skillRow=(k,n)=>`<div class="skrow"><input data-skill="${esc(k)}" value="${esc(n)}" maxlength="14" placeholder="例：發球"><button type="button" class="btn sm danger" data-act="del-skill" aria-label="刪除這個項目">✕</button></div>`;
 function vSettings(){
   const s=SET();
@@ -299,7 +300,10 @@ function vSettings(){
   <form id="setForm" class="card" autocomplete="off">
   <div class="grid2"><div class="f" style="margin-top:0"><label for="st_coach">你的稱呼</label><input id="st_coach" name="coachName" value="${esc(s.coachName)}" placeholder="例：Ken 教練"></div>
   <div class="f" style="margin-top:0"><label for="st_brand">品牌／球隊名稱</label><input id="st_brand" name="brand" value="${esc(s.brand)}" placeholder="例：Pickle Battle"></div></div>
-  <div class="f"><label for="st_loc">常用上課地點</label><input id="st_loc" name="defaultLocation" value="${esc(s.defaultLocation)}"></div>
+  <div class="f"><span class="lb">常用上課地點</span>
+  <p class="hint" style="margin:0">先把常去的球場建好，排課時點一下就填好，也可以臨時手動打別的地點。排在第一個的會成為新課程的預設地點。</p>
+  <div id="placeList">${s.places.map(n=>placeRow(n)).join('')}</div>
+  <button type="button" class="btn sm" data-act="add-place" style="margin-top:8px;align-self:flex-start">＋ 新增地點</button></div>
   <div class="f"><label for="st_dur">預設課程長度</label><select id="st_dur" name="defaultDuration">${[30,60,90,120].map(m=>`<option value="${m}" ${Number(s.defaultDuration)===m?'selected':''}>${m} 分鐘</option>`).join('')}</select></div>
   <div class="f"><span class="lb">課程價目表（一堂課的總價）</span>
   <p class="hint" style="margin:0">填的是整堂課的總收費，不是每人。一般課依 1對1～1對4，體驗課依 4～8 人。留空的格子會沿用相鄰人數的價格。</p>

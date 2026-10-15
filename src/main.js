@@ -95,6 +95,9 @@ document.addEventListener('click',async e=>{
     case 'ics':{const l=byId('lessons',ds.id);if(l)download(`匹克球課_${l.date}.ics`,ics(l),'text/calendar');break}
     case 'export-csv':{const R=periodRange(ui.month,ui.period);download(`收支_${R.from}_${R.to}.csv`,csv(),'text/csv');break}
     case 'export-json':download(`${CONFIG.APP_NAME}_備份_${today()}.json`,JSON.stringify(D),'application/json');break;
+    case 'add-place':{const box=document.getElementById('placeList');if(box){box.insertAdjacentHTML('beforeend',placeRow(''));box.lastElementChild.querySelector('input').focus()}break}
+    case 'del-place':b.closest('.skrow')?.remove();break;
+    case 'pick-place':{const i=document.getElementById('l_loc');if(i){i.value=ds.v;document.querySelectorAll('#sf .places .chip').forEach(c=>c.classList.toggle('on',c===b))}break}
     case 'add-skill':{const box=document.getElementById('skList');if(box){box.insertAdjacentHTML('beforeend',skillRow(uid(),''));box.lastElementChild.querySelector('input').focus()}break}
     case 'del-skill':b.closest('.skrow')?.remove();break;
     case 'del':{
@@ -123,8 +126,9 @@ document.addEventListener('submit',e=>{
   e.preventDefault();
   if(e.target.id==='setForm'){const fd=new FormData(e.target);const num=k=>Number(fv(fd,k)||0);
     const skills=[...e.target.querySelectorAll('#skList [data-skill]')].map(i=>[i.dataset.skill,i.value.trim()]).filter(x=>x[1]);
+    const places=[...new Set([...e.target.querySelectorAll('#placeList [data-place]')].map(i=>i.value.trim()).filter(Boolean))];
     const prices={};for(const k of Object.keys(PRICEKIND)){prices[k]={};for(const h of PRICEHEADS[k])prices[k][h]=Math.max(0,num(`price_${k}_${h}`))}
-    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,skills,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
+    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),places,defaultLocation:places[0]||'',defaultDuration:num('defaultDuration')||60,prices,skills,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
   if(e.target.id==='sf'&&sheetSubmit)sheetSubmit(new FormData(e.target));
 });
 document.getElementById('fab').addEventListener('click',()=>{

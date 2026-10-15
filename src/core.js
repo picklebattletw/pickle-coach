@@ -10,7 +10,7 @@ const CONFIG = {
   PRIVACY_URL: 'privacy.html',
   // 新增可登入的教練：Google 的「測試人員」名單（Google 沒有開放用程式管理，只能在這一頁操作）
   USERS_URL: 'https://console.cloud.google.com/auth/audience',
-  VERSION: '1.9.2'
+  VERSION: '1.10.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -34,7 +34,7 @@ const SOURCES=['朋友介紹','Instagram','Facebook','LINE 社群','體驗課','
 const LEADST={inquiry:['詢問中','mute'],trial:['已約體驗','ball'],won:['已成交','good'],lost:['未成交','bad']};
 const COLORS=['#1E5D78','#2E7D55','#B86E12','#B23A3A','#6B4FA0','#0F8A8A','#A0527A','#5A6B70'];
 const COLS=['students','lessons','payments','logs','leads'];
-const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,skills:null,updatedAt:0};
+const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',places:null,defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,skills:null,updatedAt:0};
 
 /* ================== 小工具 ================== */
 const pad=n=>String(n).padStart(2,'0');
@@ -64,6 +64,10 @@ function fillSettings(s){
   const src=o.prices&&typeof o.prices==='object'?o.prices:{normal:{...DEFAULT_PRICES.normal,1:base},trial:{...DEFAULT_PRICES.trial}};
   o.prices={};
   for(const k of Object.keys(PRICEKIND)){o.prices[k]={};for(const n of PRICEHEADS[k]){const v=Number(src[k]?.[n]||0);o.prices[k][n]=v>0?Math.round(v):0}}
+  // places 沒設定過＝沿用原本單一的「常用上課地點」
+  o.places=Array.isArray(o.places)
+    ? [...new Set(o.places.map(x=>String(x||'').trim()).filter(Boolean))]
+    : (o.defaultLocation?[o.defaultLocation]:[]);
   // skills 沒設定過＝用預設的 8 項；設成空陣列＝教練刻意不要評分功能
   o.skills=Array.isArray(o.skills)
     ? o.skills.map(x=>Array.isArray(x)?[String(x[0]||''),String(x[1]||'').trim()]:[String(x?.k||''),String(x?.n||'').trim()]).filter(x=>x[0]&&x[1])

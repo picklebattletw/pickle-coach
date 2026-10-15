@@ -104,6 +104,9 @@ h2 .more{margin-left:auto}
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:18px;text-align:center;color:var(--muted)}
 .empty p{margin:0 0 10px}
 .weekbar{display:flex;align-items:center;gap:8px;margin-top:12px}
+.places{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.places .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
+.places .chip.on{background:var(--court);border-color:var(--court);color:var(--on-court)}
 .steps{margin:10px 0 0;padding-left:22px;color:var(--muted);font-size:14px;line-height:1.95}
 .steps b{color:var(--ink)}
 .pseg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -290,7 +293,7 @@ const CONFIG = {
   PRIVACY_URL: 'privacy.html',
   // 新增可登入的教練：Google 的「測試人員」名單（Google 沒有開放用程式管理，只能在這一頁操作）
   USERS_URL: 'https://console.cloud.google.com/auth/audience',
-  VERSION: '1.9.2'
+  VERSION: '1.10.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -314,7 +317,7 @@ const SOURCES=['朋友介紹','Instagram','Facebook','LINE 社群','體驗課','
 const LEADST={inquiry:['詢問中','mute'],trial:['已約體驗','ball'],won:['已成交','good'],lost:['未成交','bad']};
 const COLORS=['#1E5D78','#2E7D55','#B86E12','#B23A3A','#6B4FA0','#0F8A8A','#A0527A','#5A6B70'];
 const COLS=['students','lessons','payments','logs','leads'];
-const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,skills:null,updatedAt:0};
+const DEFAULT_SETTINGS={coachName:'',brand:'',defaultLocation:'',places:null,defaultDuration:60,inactiveDays:21,singlePrice:1000,prices:null,skills:null,updatedAt:0};
 
 /* ================== 小工具 ================== */
 const pad=n=>String(n).padStart(2,'0');
@@ -344,6 +347,10 @@ function fillSettings(s){
   const src=o.prices&&typeof o.prices==='object'?o.prices:{normal:{...DEFAULT_PRICES.normal,1:base},trial:{...DEFAULT_PRICES.trial}};
   o.prices={};
   for(const k of Object.keys(PRICEKIND)){o.prices[k]={};for(const n of PRICEHEADS[k]){const v=Number(src[k]?.[n]||0);o.prices[k][n]=v>0?Math.round(v):0}}
+  // places 沒設定過＝沿用原本單一的「常用上課地點」
+  o.places=Array.isArray(o.places)
+    ? [...new Set(o.places.map(x=>String(x||'').trim()).filter(Boolean))]
+    : (o.defaultLocation?[o.defaultLocation]:[]);
   // skills 沒設定過＝用預設的 8 項；設成空陣列＝教練刻意不要評分功能
   o.skills=Array.isArray(o.skills)
     ? o.skills.map(x=>Array.isArray(x)?[String(x[0]||''),String(x[1]||'').trim()]:[String(x?.k||''),String(x?.n||'').trim()]).filter(x=>x[0]&&x[1])
@@ -859,6 +866,7 @@ function vStats(){
 }
 
 /* ---------- 設定 ---------- */
+const placeRow=n=>`<div class="skrow"><input data-place value="${esc(n)}" maxlength="40" placeholder="例：大安運動中心 B2"><button type="button" class="btn sm danger" data-act="del-place" aria-label="刪除這個地點">✕</button></div>`;
 const skillRow=(k,n)=>`<div class="skrow"><input data-skill="${esc(k)}" value="${esc(n)}" maxlength="14" placeholder="例：發球"><button type="button" class="btn sm danger" data-act="del-skill" aria-label="刪除這個項目">✕</button></div>`;
 function vSettings(){
   const s=SET();
@@ -872,7 +880,10 @@ function vSettings(){
   <form id="setForm" class="card" autocomplete="off">
   <div class="grid2"><div class="f" style="margin-top:0"><label for="st_coach">你的稱呼</label><input id="st_coach" name="coachName" value="${esc(s.coachName)}" placeholder="例：Ken 教練"></div>
   <div class="f" style="margin-top:0"><label for="st_brand">品牌／球隊名稱</label><input id="st_brand" name="brand" value="${esc(s.brand)}" placeholder="例：Pickle Battle"></div></div>
-  <div class="f"><label for="st_loc">常用上課地點</label><input id="st_loc" name="defaultLocation" value="${esc(s.defaultLocation)}"></div>
+  <div class="f"><span class="lb">常用上課地點</span>
+  <p class="hint" style="margin:0">先把常去的球場建好，排課時點一下就填好，也可以臨時手動打別的地點。排在第一個的會成為新課程的預設地點。</p>
+  <div id="placeList">${s.places.map(n=>placeRow(n)).join('')}</div>
+  <button type="button" class="btn sm" data-act="add-place" style="margin-top:8px;align-self:flex-start">＋ 新增地點</button></div>
   <div class="f"><label for="st_dur">預設課程長度</label><select id="st_dur" name="defaultDuration">${[30,60,90,120].map(m=>`<option value="${m}" ${Number(s.defaultDuration)===m?'selected':''}>${m} 分鐘</option>`).join('')}</select></div>
   <div class="f"><span class="lb">課程價目表（一堂課的總價）</span>
   <p class="hint" style="margin:0">填的是整堂課的總收費，不是每人。一般課依 1對1～1對4，體驗課依 4～8 人。留空的格子會沿用相鄰人數的價格。</p>
@@ -994,9 +1005,9 @@ function studentSheet(id,preset={}){
 
 function lessonSheet(id,preset={}){
   const st=SET();
-  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'',location:st.defaultLocation||''};
+  const l=id?byId('lessons',id):{date:preset.d||ui.day||today(),time:'19:00',duration:st.defaultDuration||60,feeKind:'normal',payHeads:0,feeTotal:0,deduct:true,status:'scheduled',studentIds:preset.sid?[preset.sid]:[],title:'',location:st.places[0]||st.defaultLocation||''};
   const att=l.attendance||{};
-  const locs=[...new Set([st.defaultLocation,...all('lessons').map(x=>x.location)].filter(Boolean))];
+  const locs=[...new Set([...st.places,...all('lessons').map(x=>x.location)].filter(Boolean))];
   const studs=all('students').filter(s=>(s.status||'active')==='active'||(l.studentIds||[]).includes(s.id)).sort(byName);
   openSheet(id?'課程內容':'排課',`
   ${id&&l.status!=='cancelled'?`<div class="finish">
@@ -1007,7 +1018,8 @@ function lessonSheet(id,preset={}){
   <div class="f"><label for="l_time">開始</label><input id="l_time" type="time" name="time" required value="${esc(l.time)}"></div>
   <div class="f"><label for="l_dur">時長</label><select id="l_dur" name="duration">${[30,45,60,90,120,150,180].map(m=>`<option value="${m}" ${Number(l.duration)===m?'selected':''}>${m} 分</option>`).join('')}</select></div></div>
   <div class="f"><label for="l_title">課程名稱（選填）</label><input id="l_title" name="title" list="titles" value="${esc(l.title)}" placeholder="留空就顯示「匹克球課」"><datalist id="titles">${[...new Set(['一對一私人課','雙人課','初學團體班','進階團體班','對打實戰課',...all('lessons').map(x=>x.title)].filter(Boolean))].map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
-  <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist></div>
+  <div class="f"><label for="l_loc">地點</label><input id="l_loc" name="location" list="locs" value="${esc(l.location)}" placeholder="球場名稱、場地號"><datalist id="locs">${locs.map(x=>`<option>${esc(x)}</option>`).join('')}</datalist>
+  ${st.places.length?`<div class="chips places">${st.places.map(n=>`<button type="button" class="chip ${n===l.location?'on':''}" data-act="pick-place" data-v="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}</div>
   <div class="f"><span class="lb">學生</span>${studs.length?`<div class="picks">${studs.map(s=>`<label class="pick"><input type="checkbox" name="sids" value="${s.id}" ${(l.studentIds||[]).includes(s.id)?'checked':''}><span><i class="cdot" style="background:${sColor(s)}"></i>${esc(s.name)}</span></label>`).join('')}</div>`:'<p class="hint">還沒有學生，可以先排課、之後再加入。</p>'}<p class="hint" style="margin:4px 0 0">體驗課或還沒建檔的學員，可以不選學生，直接填下面的「收費人數」。</p></div>
   <div class="grid3"><div class="f"><label for="l_fee">課程性質</label><select id="l_fee" name="feeKind">${Object.entries(PRICEKIND).map(([k,n])=>`<option value="${k}" ${feeKindOf(l)===k?'selected':''}>${n}</option>`).join('')}</select></div>
   <div class="f"><label for="l_heads">收費人數</label><input id="l_heads" type="number" min="0" max="20" step="1" inputmode="numeric" name="payHeads" value="${esc(l.payHeads||'')}" placeholder="依人數"></div>
@@ -1326,6 +1338,9 @@ document.addEventListener('click',async e=>{
     case 'ics':{const l=byId('lessons',ds.id);if(l)download(`匹克球課_${l.date}.ics`,ics(l),'text/calendar');break}
     case 'export-csv':{const R=periodRange(ui.month,ui.period);download(`收支_${R.from}_${R.to}.csv`,csv(),'text/csv');break}
     case 'export-json':download(`${CONFIG.APP_NAME}_備份_${today()}.json`,JSON.stringify(D),'application/json');break;
+    case 'add-place':{const box=document.getElementById('placeList');if(box){box.insertAdjacentHTML('beforeend',placeRow(''));box.lastElementChild.querySelector('input').focus()}break}
+    case 'del-place':b.closest('.skrow')?.remove();break;
+    case 'pick-place':{const i=document.getElementById('l_loc');if(i){i.value=ds.v;document.querySelectorAll('#sf .places .chip').forEach(c=>c.classList.toggle('on',c===b))}break}
     case 'add-skill':{const box=document.getElementById('skList');if(box){box.insertAdjacentHTML('beforeend',skillRow(uid(),''));box.lastElementChild.querySelector('input').focus()}break}
     case 'del-skill':b.closest('.skrow')?.remove();break;
     case 'del':{
@@ -1354,8 +1369,9 @@ document.addEventListener('submit',e=>{
   e.preventDefault();
   if(e.target.id==='setForm'){const fd=new FormData(e.target);const num=k=>Number(fv(fd,k)||0);
     const skills=[...e.target.querySelectorAll('#skList [data-skill]')].map(i=>[i.dataset.skill,i.value.trim()]).filter(x=>x[1]);
+    const places=[...new Set([...e.target.querySelectorAll('#placeList [data-place]')].map(i=>i.value.trim()).filter(Boolean))];
     const prices={};for(const k of Object.keys(PRICEKIND)){prices[k]={};for(const h of PRICEHEADS[k])prices[k][h]=Math.max(0,num(`price_${k}_${h}`))}
-    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),defaultLocation:fv(fd,'defaultLocation'),defaultDuration:num('defaultDuration')||60,prices,skills,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
+    putSettings({coachName:fv(fd,'coachName'),brand:fv(fd,'brand'),places,defaultLocation:places[0]||'',defaultDuration:num('defaultDuration')||60,prices,skills,singlePrice:prices.normal[1]||SET().singlePrice,inactiveDays:num('inactiveDays')||21});toast('設定已儲存');return}
   if(e.target.id==='sf'&&sheetSubmit)sheetSubmit(new FormData(e.target));
 });
 document.getElementById('fab').addEventListener('click',()=>{
