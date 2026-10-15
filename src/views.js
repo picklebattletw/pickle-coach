@@ -300,6 +300,17 @@ function vSettings(){
   <button type="button" class="btn sm" data-act="add-skill" style="margin-top:8px;align-self:flex-start">＋ 新增項目</button></div>
   <div class="f"><label for="st_idle">幾天沒上課就提醒（流失風險）</label><input id="st_idle" type="number" min="1" name="inactiveDays" value="${esc(s.inactiveDays)}"></div>
   <div class="actions"><button class="btn pri grow">儲存設定</button></div></form>
+  ${session.mode==='google'?`<h2>使用者管理</h2>
+  <p class="sub" style="margin:0">要讓新的教練能登入，必須把他的 Google 帳號加到「測試人員」名單。這份名單由 Google 保管，不在這個網站裡，所以要到 Google 的頁面操作。</p>
+  <div class="btns" style="margin-top:10px"><a class="btn pri" href="${esc(CONFIG.USERS_URL)}" target="_blank" rel="noopener">開啟 Google 使用者名單</a></div>
+  <ol class="steps">
+  <li>用<b>建立本系統的那個 Google 帳號</b>登入</li>
+  <li>確認左上角選到正確的專案</li>
+  <li>往下找到「測試使用者」，按「<b>+ Add users</b>」</li>
+  <li>輸入對方的 Gmail，按儲存</li>
+  <li>請對方開本網站登入，出現「尚未驗證」時點「進階 › 繼續前往」</li>
+  </ol>
+  <p class="hint">名單上限 100 人。從名單移除後對方就無法再登入，但已經存在他自己雲端硬碟的資料不會消失。只有本系統的管理者（Google Cloud 專案擁有者）能操作這一頁。</p>`:''}
   <h2>備份</h2>
   <p class="sub" style="margin:0">雲端硬碟會自動保留檔案的歷史版本。你也可以另外下載一份備份檔，或匯入之前的備份。</p>
   <div class="btns" style="margin-top:10px"><button class="btn" data-act="export-json">下載備份檔</button><label class="btn" for="importFile">匯入備份檔</label><input type="file" id="importFile" accept="application/json,.json" hidden></div>
