@@ -10,7 +10,7 @@ const CONFIG = {
   PRIVACY_URL: 'privacy.html',
   // 新增可登入的教練：Google 的「測試人員」名單（Google 沒有開放用程式管理，只能在這一頁操作）
   USERS_URL: 'https://console.cloud.google.com/auth/audience',
-  VERSION: '1.8.1'
+  VERSION: '1.9.0'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -130,6 +130,17 @@ const lessonsOf=sid=>all('lessons').filter(l=>(l.studentIds||[]).includes(sid));
 const doneCount=sid=>lessonsOf(sid).filter(l=>(l.attendance||{})[sid]==='present').length; // 已上課堂數
 // 某堂課、某位學生的「當場收費」紀錄（勾了已收費就會自動建立這一筆）
 const lessonPayOf=(lid,sid)=>all('payments').find(p=>p.lessonId===lid&&(p.studentId||'')===(sid||'')&&p.type==='single')||null;
+// 這堂課的狀態：off 已取消／paid 已收費／unpaid 完成但沒收錢／done 完成（沒有要收的錢）／todo 還沒上
+function lessonPaid(l){const ch=(l.studentIds||[]).filter(sid=>counted(l,sid));
+  return ch.length?ch.every(sid=>lessonPayOf(l.id,sid)):!!lessonPayOf(l.id,'')}
+function lessonState(l){
+  if(!l)return '';
+  if(l.status==='cancelled')return 'off';
+  if(lessonPaid(l))return 'paid';
+  if(l.status==='done'){const ch=(l.studentIds||[]).filter(sid=>counted(l,sid));
+    return (ch.length||((l.studentIds||[]).length===0&&l.deduct!==false))?'unpaid':'done'}
+  return 'todo';
+}
 const paysOf=sid=>all('payments').filter(p=>p.studentId===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 function owed(s){ // 待收款＝已點名計費的課 − 已收的課程費
   if(!s)return 0;

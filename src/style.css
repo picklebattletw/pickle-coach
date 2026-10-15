@@ -90,13 +90,22 @@ h2 .more{margin-left:auto}
 .pseg button+button{border-left:1px solid var(--line)}
 .pseg button.on{background:var(--court);color:var(--on-court)}
 .weekbar .t{flex:1;text-align:center;font-weight:700}
-.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:10px}
-.day{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 0;text-align:center;cursor:pointer}
-.day small{display:block;font-size:11px;color:var(--muted)}
-.day b{font-family:var(--f-num);font-size:18px;font-weight:600}
-.day i{display:block;height:8px;font-style:normal;line-height:8px;color:var(--court);font-size:9px}
-.day.sel{background:var(--court);border-color:var(--court);color:var(--on-court)} .day.sel small,.day.sel i{color:var(--on-court)}
-.day.today:not(.sel){border-color:var(--ball);border-width:2px}
+.mcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:10px}
+.mcal .hd{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding-bottom:2px}
+.mcal .pad{aspect-ratio:1}
+.mcal .day{aspect-ratio:1;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--ink)}
+.mcal .day b{font-family:var(--f-num);font-size:17px;font-weight:600;line-height:1}
+.mcal .day.has{background:var(--court-soft);border-color:var(--court-soft);color:var(--court)}
+.mcal .day.today{border-color:var(--ball);border-width:2px}
+.mcal .day.sel{background:var(--court);border-color:var(--court);color:var(--on-court)}
+.mcal .dots{display:flex;gap:2px;height:6px;align-items:center}
+.mcal .dots i{width:5px;height:5px;border-radius:50%;background:var(--court);display:block}
+.mcal .day.sel .dots i{background:var(--on-court)}
+.mcal .dots i.p,.mcal .day.sel .dots i.p{background:var(--good)}
+.mcal .dots i.u,.mcal .day.sel .dots i.u{background:var(--bad)}
+.callegend{display:flex;align-items:center;gap:4px;margin-top:8px}
+.callegend i{width:7px;height:7px;border-radius:50%;background:var(--court);display:inline-block;margin-right:2px}
+.callegend i.p{background:var(--good)}.callegend i.u{background:var(--bad)}
 .dayhead{font-weight:700;margin:18px 0 8px;font-size:14px;color:var(--muted)}
 .dayhead.is-today{color:var(--court)}
 .search{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-top:12px}

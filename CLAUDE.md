@@ -13,7 +13,7 @@
 ## 檔案結構
 - `src/` 原始碼（**只改這裡**）
   - `core.js`：設定（CONFIG，含 GOOGLE_CLIENT_ID）、常數、資料模型、計算（剩餘堂數、待收款、到期）、Google 登入與雲端硬碟同步
-  - `views.js`：各分頁畫面（今日、行事曆、學生、收支、更多：LINE 訊息／潛在客群／分析／設定）
+  - `views.js`：各分頁畫面（今日、行事曆＝整月月曆、學生、收支、更多：LINE 訊息／潛在客群／分析／設定）。`lessonState(l)` 回傳 off／paid／unpaid／done／todo，課表標籤與月曆圓點都用它。
   - `sheets.js`：新增／編輯表單、匯出（ics、CSV、JSON 備份）、範例資料
   - `main.js`：登入畫面、事件處理、啟動
   - `style.css`、`body.html`

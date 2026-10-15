@@ -80,9 +80,10 @@ document.addEventListener('click',async e=>{
     case 'edit-lead':leadSheet(ds.id);break;
     case 'convert-lead':{const l=byId('leads',ds.id);if(l){closeSheet();studentSheet(null,{name:l.name,source:l.source,phone:/^[\d\-+ ]+$/.test(l.contact||'')?l.contact:'',lineId:/line/i.test(l.contact||'')?l.contact.replace(/^line[:：\s]*/i,''):'',notes:l.note||'',leadId:l.id})}break}
     case 'trial-msg':toMsg('trial',ds.id);break;
-    case 'pick-day':ui.day=ds.d;render();document.getElementById('d-'+ds.d)?.scrollIntoView({block:'start',behavior:'smooth'});break;
+    case 'pick-day':ui.day=ds.d;ui.week=weekStart(ds.d);ui.calM=ds.d.slice(0,7);render();break;
+    case 'cal-month':ui.calM=ds.m;render();break;
+    case 'cal-today':ui.calM=today().slice(0,7);ui.day=today();ui.week=weekStart(today());render();break;
     case 'week':ui.week=addDays(ui.week,Number(ds.n));ui.day=ui.week;render();break;
-    case 'week-today':ui.week=weekStart(today());ui.day=today();render();break;
     case 'month':ui.month=ds.m;render();break;
     case 'period':ui.period=ds.k;render();break;
     case 'ntype':ui.ntype=ds.k;ui.nref='';render();break;

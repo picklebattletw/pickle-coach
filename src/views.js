@@ -1,5 +1,5 @@
 /* ================== 畫面狀態 ================== */
-const ui={tab:'today',sub:null,sid:null,week:weekStart(today()),day:today(),month:today().slice(0,7),period:'month',q:'',sfilter:'active',tagf:'',ntype:'remind',nref:'',leadf:'open'};
+const ui={tab:'today',sub:null,sid:null,week:weekStart(today()),day:today(),calM:today().slice(0,7),month:today().slice(0,7),period:'month',q:'',sfilter:'active',tagf:'',ntype:'remind',nref:'',leadf:'open'};
 let msgDirty=false;
 
 function render(){
@@ -26,14 +26,8 @@ function banners(){
 }
 function empty(msg,btn,act,extra=''){return `<div class="empty"><p>${msg}</p>${btn?`<button class="btn pri" data-act="${act}" ${extra}>${btn}</button>`:''}</div>`}
 function stLabel(l){
-  if(l.status==='cancelled')return '<span class="tag mute">已取消</span>';
-  const ch=(l.studentIds||[]).filter(sid=>counted(l,sid));
-  if(ch.length?ch.every(sid=>lessonPayOf(l.id,sid)):lessonPayOf(l.id,''))return '<span class="tag good">已收費</span>';
-  if(l.status==='done'){
-    const chargeable=ch.length>0||((l.studentIds||[]).length===0&&l.deduct!==false);
-    return chargeable?'<span class="tag bad">未收費</span>':'<span class="tag good">已完成</span>';
-  }
-  return '';
+  return {off:'<span class="tag mute">已取消</span>',paid:'<span class="tag good">已收費</span>',
+    unpaid:'<span class="tag bad">未收費</span>',done:'<span class="tag good">已完成</span>'}[lessonState(l)]||'';
 }
 function lessonCard(l){
   const n=headsOf(l),tk=feeKindOf(l);
@@ -82,27 +76,43 @@ function vToday(){
   }
   return `<p class="eyebrow">${dlabel(t)}</p><h1>${hello}今天有 ${ls.length} 堂課</h1><p class="sub">未來 7 天還有 ${up} 堂</p>
   <div class="stats"><div class="stat"><span>本月收入</span><b>${money(inc)}</b></div><div class="stat"><span>本月支出</span><b>${money(exp)}</b></div><div class="stat"><span>本月淨額</span><b>${money(inc-exp)}</b></div></div>
-  <h2>今日課表 <button class="btn sm more" data-act="goto" data-tab="cal">看整週</button></h2>
+  <h2>今日課表 <button class="btn sm more" data-act="goto" data-tab="cal">看月曆</button></h2>
   <div class="list">${ls.length?ls.map(lessonCard).join(''):empty('今天沒有排課','排一堂課','new-lesson')}</div>
   ${pending.length?`<h2>還沒點名的課 <span class="tag warn">${pending.length}</span></h2><div class="list">${pending.map(lessonCard).join('')}</div><p class="hint">點進去標記出席，順便勾「已收」就完成收費了。</p>`:''}
   <h2>需要處理 ${al.length?`<span class="tag warn">${groupAlerts(al).length}</span>`:''}</h2>
   <div class="list">${al.length?groupAlerts(al).slice(0,12).map(g=>stuRow(g.s,`<div class="chips" style="justify-content:flex-end;max-width:110px">${g.items.map(a=>`<span class="tag ${a.tag}">${{owe:'待收款',idle:'流失風險'}[a.kind]}</span>`).join('')}</div>`,g.items.map(a=>esc(a.txt)).join('<br>'))).join(''):'<div class="empty">目前沒有待收款、也沒有太久沒上課的學生</div>'}</div>`;
 }
 
-/* ---------- 行事曆 ---------- */
+/* ---------- 行事曆（整月） ---------- */
 function vCal(){
-  const t=today(),ws=ui.week,days=[...Array(7)].map((_,i)=>addDays(ws,i)),we=days[6];
-  const strip=days.map(d=>{const n=lessonsOn(d).filter(l=>l.status!=='cancelled').length;const dd=parse(d);
-    return `<button class="day ${d===ui.day?'sel':''} ${d===t?'today':''}" data-act="pick-day" data-d="${d}" aria-label="${dlabel(d)} ${n} 堂"><small>${WD[dd.getDay()]}</small><b>${dd.getDate()}</b><i>${n?'●'.repeat(Math.min(n,4)):''}</i></button>`}).join('');
-  const body=days.map(d=>{const ls=lessonsOn(d);if(!ls.length&&d!==ui.day)return '';
-    return `<div class="dayhead ${d===t?'is-today':''}" id="d-${d}">${dlabel(d)}${d===t?' · 今天':''}</div><div class="list">${ls.length?ls.map(lessonCard).join(''):`<div class="empty"><p>這天沒有課</p><button class="btn pri sm" data-act="new-lesson" data-d="${d}">在 ${dlabel(d)} 排課</button></div>`}</div>`}).join('');
-  const total=all('lessons').filter(l=>l.date>=ws&&l.date<=we&&l.status!=='cancelled');
-  const hrs=total.reduce((a,l)=>a+Number(l.duration||60),0)/60;
-  return `<p class="eyebrow">行事曆</p><h1>這週 ${total.length} 堂課</h1><p class="sub">共 ${fmtNum(hrs)} 小時</p>
-  <div class="weekbar"><button class="btn sm" data-act="week" data-n="-7">‹ 上週</button><div class="t num">${dlabel(ws)} – ${dlabel(we)}</div><button class="btn sm" data-act="week" data-n="7">下週 ›</button></div>
-  <div class="days">${strip}</div>
-  <div class="btns" style="margin-top:12px"><button class="btn pri" data-act="new-lesson" data-d="${ui.day}">＋ 排課</button><button class="btn" data-act="week-today">回到本週</button><button class="btn" data-act="share-week">傳本週課表到 LINE</button></div>
-  ${body||'<div class="empty" style="margin-top:14px">這週還沒有任何課程</div>'}`;
+  const t=today(),m=ui.calM,[y,mo]=m.split('-').map(Number);
+  const dim=new Date(y,mo,0).getDate(),lead=new Date(y,mo-1,1).getDay();
+  const cells=[];
+  for(let i=0;i<lead;i++)cells.push('');
+  for(let d=1;d<=dim;d++)cells.push(`${y}-${pad(mo)}-${pad(d)}`);
+  while(cells.length%7)cells.push('');
+  const month=all('lessons').filter(l=>l.date.startsWith(m)&&l.status!=='cancelled');
+  const hrs=month.reduce((a,l)=>a+Number(l.duration||60),0)/60;
+  const owe=month.filter(l=>lessonState(l)==='unpaid').length;
+  const shiftM=n=>{const x=new Date(y,mo-1+n,1);return x.getFullYear()+'-'+pad(x.getMonth()+1)};
+  const grid='日一二三四五六'.split('').map(w=>`<div class="hd">${w}</div>`).join('')
+    +cells.map(d=>{
+      if(!d)return '<div class="pad"></div>';
+      const ls=lessonsOn(d).filter(l=>l.status!=='cancelled');
+      const cls=['day',ls.length?'has':'',d===t?'today':'',d===ui.day?'sel':''].filter(Boolean).join(' ');
+      const dots=ls.slice(0,4).map(l=>{const s=lessonState(l);return `<i class="${s==='paid'?'p':s==='unpaid'?'u':''}"></i>`}).join('');
+      return `<button class="${cls}" data-act="pick-day" data-d="${d}" aria-label="${dlabel(d)} ${ls.length} 堂"><b>${Number(d.slice(8))}</b><span class="dots">${dots}</span></button>`;
+    }).join('');
+  const ls=lessonsOn(ui.day);
+  const body=`<div class="dayhead ${ui.day===t?'is-today':''}">${dlabel(ui.day)}${ui.day===t?' · 今天':''} <span class="tag mute">${ls.length} 堂</span></div>
+  <div class="list">${ls.length?ls.map(lessonCard).join(''):`<div class="empty"><p>這天沒有課</p><button class="btn pri sm" data-act="new-lesson" data-d="${ui.day}">在 ${dlabel(ui.day)} 排課</button></div>`}</div>`;
+  return `<p class="eyebrow">行事曆</p><h1>${y} 年 ${mo} 月</h1>
+  <p class="sub">${month.length} 堂課・共 ${fmtNum(hrs)} 小時${owe?`・<b style="color:var(--bad)">${owe} 堂未收費</b>`:''}</p>
+  <div class="weekbar"><button class="btn sm" data-act="cal-month" data-m="${shiftM(-1)}">‹ 上個月</button><div class="t"></div><button class="btn sm" data-act="cal-month" data-m="${shiftM(1)}">下個月 ›</button></div>
+  <div class="mcal">${grid}</div>
+  <p class="hint callegend"><i></i>已排定　<i class="p"></i>已收費　<i class="u"></i>未收費</p>
+  <div class="btns" style="margin-top:12px"><button class="btn pri" data-act="new-lesson" data-d="${ui.day}">＋ 排課</button><button class="btn" data-act="cal-today">回到今天</button><button class="btn" data-act="share-week">傳本週課表</button></div>
+  ${body}`;
 }
 
 /* ---------- 學生 ---------- */
