@@ -288,7 +288,7 @@ const CONFIG = {
   PRIVACY_URL: 'privacy.html',
   // 新增可登入的教練：Google 的「測試人員」名單（Google 沒有開放用程式管理，只能在這一頁操作）
   USERS_URL: 'https://console.cloud.google.com/auth/audience',
-  VERSION: '1.8.0'
+  VERSION: '1.8.1'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -604,8 +604,8 @@ function lessonCard(l){
     <div style="min-width:0"><div class="ltitle">${esc(l.title||'匹克球課')} ${tp}</div><div class="who">${esc(names(l))}</div>${l.location?`<div class="loc">${esc(l.location)}</div>`:''}</div>
     <div>${stLabel(l)}</div></button>`;
 }
-function stuRow(s,right,sub){
-  return `<button class="row" data-act="open-student" data-id="${s.id}"><div class="av" style="background:${sColor(s)}22;color:${sColor(s)}">${initial(s.name)}</div><div class="main"><b>${esc(s.name)}</b><small>${sub}</small></div>${right||''}</button>`;
+function stuRow(s,right,sub,attrs){
+  return `<button class="row" ${attrs||`data-act="open-student" data-id="${s.id}"`}><div class="av" style="background:${sColor(s)}22;color:${sColor(s)}">${initial(s.name)}</div><div class="main"><b>${esc(s.name)}</b><small>${sub}</small></div>${right||''}</button>`;
 }
 function remainRight(s){
   const o=owed(s),n=doneCount(s.id);
@@ -712,7 +712,7 @@ function vStudent(s){
   ${(s.tags||[]).length?`<div class="chips" style="margin-top:6px">${s.tags.map(t=>`<span class="tag">#${esc(t)}</span>`).join('')}</div>`:''}</div></div>
   ${s.goal?`<p class="sub" style="margin-top:10px"><span class="lab">目標</span>　${esc(s.goal)}</p>`:''}
   <div class="stats four">${firstStat}<div class="stat"><span>已上課</span><b>${used} 堂</b><small>${rate===null?'&nbsp;':'出席率 '+rate+'%'}</small></div><div class="stat"><span>累計繳費</span><b>${money(paid)}</b><small>${pays.length?`${pays.length} 筆`:'&nbsp;'}</small></div><div class="stat"><span>下一堂</span><b style="font-size:18px">${nl?dlabel(nl.date):'未排'}</b><small>${nl?esc(nl.time):'&nbsp;'}</small></div></div>
-  <div class="btns" style="margin-top:14px"><button class="btn pri" data-act="new-log" data-sid="${s.id}">寫上課筆記</button><button class="btn" data-act="new-payment" data-sid="${s.id}" data-type="single">收款</button><button class="btn" data-act="new-lesson" data-sid="${s.id}">排課</button><button class="btn line" data-act="share-report" data-sid="${s.id}">傳學習報告</button><button class="btn" data-act="edit-student" data-id="${s.id}">編輯資料</button></div>
+  <div class="btns" style="margin-top:14px"><button class="btn pri" data-act="new-log" data-sid="${s.id}">寫上課筆記</button><button class="btn" data-act="new-lesson" data-sid="${s.id}">排課</button><button class="btn line" data-act="share-report" data-sid="${s.id}">傳學習報告</button><button class="btn" data-act="edit-student" data-id="${s.id}">編輯資料</button></div>
   ${skillList().length?`<h2>技術能力 <button class="btn sm more" data-act="rate" data-sid="${s.id}">更新評分</button></h2>
   ${latest?`<div class="card radarwrap"><div>${radarSVG(latest.skills||{},first?.skills)}<div class="legend"><span><i style="background:var(--court)"></i>最新 ${dlabel(latest.date)}</span>${first?`<span><i style="background:var(--muted)"></i>第一次 ${dlabel(first.date)}</span>`:''}</div></div>
   <div class="bars">${skillList().map(([k,n])=>{const v=Number(latest.skills?.[k]||0),b=first?Number(first.skills?.[k]||0):null,d=b!==null?v-b:0;return `<div class="bar"><span>${esc(n)}${d>0?` <span class="tag good">+${d}</span>`:''}</span><div class="track"><div class="fill" style="width:${v*20}%"></div></div><span class="v">${v}</span></div>`}).join('')}</div></div>`:empty('還沒有上課筆記，寫下第一次評分後就會出現雷達圖','寫上課筆記','new-log',`data-sid="${s.id}"`)}`:''}
@@ -764,7 +764,7 @@ function vMoney(){
   <div class="stats"><div class="stat"><span>收入</span><b style="color:var(--good)">${money(inc)}</b></div><div class="stat"><span>支出</span><b style="color:var(--bad)">${money(exp)}</b></div><div class="stat"><span>淨額</span><b>${money(inc-exp)}</b></div></div>
   <p class="hint">這段期間已上 ${done} 堂${done?`，平均每堂淨收入 ${money((inc-exp)/done)}`:''}</p>
   <div class="btns" style="margin-top:12px"><button class="btn pri" data-act="new-payment">＋ 記一筆</button><button class="btn" data-act="export-csv">匯出這段期間 CSV</button></div>
-  ${owes.length?`<h2>待收款 <span class="tag bad">${owes.length}</span></h2><div class="list">${owes.map(({s,o})=>stuRow(s,`<div class="right neg"><b>${money(o)}</b><small>待收</small></div>`,'點進去登記收款')).join('')}</div>`:''}
+  ${owes.length?`<h2>待收款 <span class="tag bad">${owes.length}</span></h2><div class="list">${owes.map(({s,o})=>stuRow(s,`<div class="right neg"><b>${money(o)}</b><small>待收</small></div>`,'點一下登記收款',`data-act="new-payment" data-sid="${s.id}" data-type="single"`)).join('')}</div>`:''}
   ${Object.keys(cats).length?`<h2>分類</h2><div class="card" style="display:flex;flex-direction:column;gap:8px">${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="cat"><span>${esc(payType(k)[0])}</span><div class="track"><div class="fill" style="width:${v/max*100}%;background:${payType(k)[1]==='out'?'var(--bad)':'var(--good)'}"></div></div><span class="num" style="font-weight:600">${money(v)}</span></div>`).join('')}</div>`:''}
   <h2>明細 ${list.length?`<span class="tag mute">${list.length}</span>`:''}</h2><div class="list">${list.length?list.map(txRow).join(''):empty('這段期間還沒有收支紀錄','記一筆','new-payment')}</div>`;
 }
