@@ -10,7 +10,7 @@ const CONFIG = {
   PRIVACY_URL: 'privacy.html',
   // 新增可登入的教練：Google 的「測試人員」名單（Google 沒有開放用程式管理，只能在這一頁操作）
   USERS_URL: 'https://console.cloud.google.com/auth/audience',
-  VERSION: '1.10.0'
+  VERSION: '1.10.1'
 };
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid email profile';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
@@ -187,7 +187,7 @@ const initial=n=>esc(String(n||'?').replace(/^範例・/,'').slice(0,1));
 // session: {mode:'google'|'demo', email, name, picture}
 let session=lsGet('pcb:session');
 let store={fileId:'',folderId:'',remoteVersion:'',editSeq:0,syncedSeq:0};
-let token=null,tokenExp=0,syncState='idle',syncMsg='',pushTimer=null,syncing=false,syncAgain=false;
+let token=null,tokenExp=0,syncState='idle',syncMsg='',syncRaw='',pushTimer=null,syncing=false,syncAgain=false;
 const storeKey=()=>session?.mode==='google'?'pcb:acct:'+session.email:'pcb:demo';
 
 function saveLocal(){lsSet(storeKey(),{data:D,fileId:store.fileId,folderId:store.folderId,remoteVersion:store.remoteVersion,dirty:store.editSeq!==store.syncedSeq})}
@@ -198,7 +198,7 @@ function loadLocal(){
 }
 function changed(){store.editSeq++;saveLocal();render();if(session?.mode==='google'){clearTimeout(pushTimer);pushTimer=setTimeout(sync,1500)}}
 
-function setSync(st,msg){syncState=st;syncMsg=msg||'';const n=document.getElementById('sync');if(!n)return;
+function setSync(st,msg,raw){syncState=st;syncMsg=msg||'';syncRaw=raw||'';const n=document.getElementById('sync');if(!n)return;
   const t={idle:'',ok:'已同步',busy:'同步中…',off:'點此連線',err:'同步失敗',demo:'試用模式'}[st]||'';
   n.innerHTML=`<span class="dot ${st==='demo'?'':st}"></span><span>${esc(t)}</span>`;n.title=msg||t}
 
@@ -217,11 +217,31 @@ async function getToken(interactive){
     c.requestAccessToken({prompt:interactive==='consent'?'consent':''});
   });
 }
+// Google 擋下來時的常見原因，翻成看得懂的說明
+const GERR={
+  accessNotConfigured:'這個 Google 專案沒有啟用 Google Drive API，請到設定頁的「使用者管理」旁邊的 Console 開啟。',
+  insufficientPermissions:'授權時沒有給雲端硬碟權限。請登出再重新登入，授權畫面出現時把選項全部打勾。',
+  insufficientFilePermissions:'沒有這個檔案的權限。可能是雲端硬碟裡的資料檔被別人改過權限。',
+  forbidden:'Google 拒絕這次存取。',
+  rateLimitExceeded:'操作太頻繁，請等幾分鐘再試。',
+  userRateLimitExceeded:'操作太頻繁，請等幾分鐘再試。',
+  dailyLimitExceeded:'今天的用量已達上限，請明天再試。',
+  storageQuotaExceeded:'你的 Google 雲端硬碟空間已滿，請先清出空間。',
+  notFound:'找不到雲端硬碟上的資料檔。',
+  appNotAuthorizedToFile:'這個檔案不是本程式建立的，所以沒有權限存取。'
+};
 async function gfetch(url,opt={}){
   if(!token||Date.now()>=tokenExp)throw {code:'auth'};
   const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),Authorization:'Bearer '+token}});
   if(r.status===401){token=null;throw {code:'auth'}}
-  if(!r.ok)throw {code:'http',status:r.status};
+  if(!r.ok){
+    let reason='',detail='';
+    try{const j=await r.json(),er=j&&j.error;
+      reason=(er&&er.errors&&er.errors[0]&&er.errors[0].reason)||(er&&er.status)||'';
+      detail=(er&&er.message)||'';
+    }catch(_){}
+    throw {code:'http',status:r.status,reason,detail};
+  }
   return r;
 }
 async function driveFind(q){const r=await gfetch(`${DRIVE}/files?q=${encodeURIComponent(q)}&spaces=drive&fields=files(id,name,version,modifiedTime)&orderBy=modifiedTime desc`);return (await r.json()).files||[]}
@@ -271,7 +291,9 @@ async function sync(opts={}){
   }catch(e){
     if(e?.code==='auth'){setSync('off','需要重新連線 Google')}
     else if(e?.code==='noclient'){setSync('err','尚未設定 Google 用戶端 ID')}
-    else{setSync('err',e?.status?`Google 回應錯誤（${e.status}）`:'網路連線有問題，資料先存在這台裝置')}
+    else if(e?.status){const why=GERR[e.reason]||'';
+      setSync('err',`Google 回應錯誤（${e.status}）${why?'：'+why:''}`,e.detail||e.reason||'')}
+    else{setSync('err','網路連線有問題，資料先存在這台裝置')}
   }finally{syncing=false;if(syncAgain){syncAgain=false;setTimeout(sync,300)}}
 }
 async function signInGoogle(){

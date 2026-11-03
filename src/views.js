@@ -21,7 +21,7 @@ function banners(){
   let h='';
   if(session.mode==='demo')h+=`<div class="banner info"><span style="flex:1;min-width:200px">試用模式：這些是範例資料，只存在這台裝置。登入 Google 後會建立你自己的資料，存在你的雲端硬碟。</span><button class="btn sm cta" data-act="gate">登入 Google</button></div>`;
   else if(syncState==='off')h+=`<div class="banner"><span style="flex:1;min-width:200px">尚未連線 Google 雲端硬碟。你的修改會先存在這台裝置，連線後自動同步。</span><button class="btn sm pri" data-act="connect">連線同步</button></div>`;
-  else if(syncState==='err')h+=`<div class="banner"><span style="flex:1;min-width:200px">${esc(syncMsg||'同步失敗')}。</span><button class="btn sm" data-act="connect">重試</button></div>`;
+  else if(syncState==='err')h+=`<div class="banner"><span style="flex:1;min-width:200px">${esc(syncMsg||'同步失敗')}${syncRaw?`<br><small style="opacity:.75;word-break:break-word">Google 原文：${esc(syncRaw)}</small>`:''}</span><button class="btn sm" data-act="connect">重試</button></div>`;
   return h;
 }
 function empty(msg,btn,act,extra=''){return `<div class="empty"><p>${msg}</p>${btn?`<button class="btn pri" data-act="${act}" ${extra}>${btn}</button>`:''}</div>`}
